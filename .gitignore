@@ -44,3 +44,10 @@ next-env.d.ts
 #playwrighttests
 test-results/
 playwright-report/
+
+# Playwright
+node_modules/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
