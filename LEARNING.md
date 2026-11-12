@@ -57,3 +57,27 @@ In Next.js, folders decide the website's addresses: `src/app/page.tsx` is `/`, a
 
 ## Lab 1
 - Health checks tell robots the app is alive.
+
+## Lab 2 – Playwright foundation and seed test
+
+- `playwright.config.ts` reads `BASE_URL`, so the same tests can run against localhost, CI or Kind. Without it, `webServer` builds and starts the app and waits for `/healthz`.
+- `tests/smoke.spec.ts` opens `/`, checks the heading, adds a task and checks that it appears. It only uses role locators (`getByRole`), which match the accessible names from Lab 1.
+- What broke: the first run timed out looking for the textbox "Task Input", because the label fix (PR #2) wasn't merged yet. The page snapshot in `test-results/.../error-context.md` showed the names Playwright actually saw.
+- What broke: an old `next start` server was still running on port 3000. With `reuseExistingServer`, Playwright tests whatever already answers on that port, even an out-of-date build.
+
+## Lab 3 – Planner agent: what `init-agents` created
+
+`npx playwright init-agents --loop=claude` adds the Playwright Test Agents to the project. They aren't separate programs: each one is a Markdown file of instructions plus a list of browser tools, which Claude Code loads as a subagent.
+
+| File | What it does |
+| --- | --- |
+| `.claude/agents/playwright-test-planner.md` | **Planner.** Explores the running app in a browser and writes a test plan in Markdown into `specs/`. It can't edit code, only save a plan. |
+| `.claude/agents/playwright-test-generator.md` | **Generator.** Turns a plan into test files. It runs each step in a real browser while it writes, so its locators are checked against the real page. |
+| `.claude/agents/playwright-test-healer.md` | **Healer.** Runs failing tests, works out why they fail and edits the test files to fix them. It's the only agent allowed to edit files. |
+| `.mcp.json` | Starts the `playwright-test` MCP server: the toolbox of browser tools the agents use (click, type, snapshot, run tests). Claude Code reads it at startup, so restart Claude Code after creating it. |
+| `tests/seed.spec.ts` | **Seed test.** The agents run it first to get the page into its starting state. For this app that's just opening `/`. |
+| `specs/` | Where the test plans go. A plan is a contract I review and edit *before* any test code exists. |
+
+- The settings block at the top of each agent file lists the tools it may use and the model that runs it (`model: sonnet`).
+- Re-run `init-agents` after every Playwright upgrade, so the agent files match the new version.
+- Watch out for Lab 7: `.mcp.json` starts the server with `cmd /c npx …`, which only works on Windows. GitHub Actions runs on Linux, so this will need changing there.
