@@ -21,6 +21,7 @@ export default function Home() {
       <h1 className="text-2xl font-bold mb-4">Sprint Task Board</h1>
       <form onSubmit={addTask} className="flex gap-2 mb-6">
         <input
+          aria-label="Task Input"
           type="text"
           placeholder="Add a new task..."
           value={input}
@@ -38,6 +39,7 @@ export default function Home() {
             <button
               onClick={() => removeTask(idx)}
               className="text-red-600 text-sm font-semibold"
+              aria-label={`Delete task: ${task}`}
             >
               Delete
             </button>
