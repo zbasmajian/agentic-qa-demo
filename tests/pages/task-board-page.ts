@@ -21,7 +21,7 @@ export class TaskBoardPage {
   constructor(readonly page: Page) {
     this.heading = page.getByRole('heading', { name: 'Sprint Task Board' });
     this.input = page.getByRole('textbox', { name: 'Task Input' });
-    this.addButton = page.getByRole('button', { name: 'Add Task' });
+    this.addButton = page.getByRole('button', { name: 'Create Task' });
     this.items = page.getByRole('listitem');
     this.clearAllButton = page.getByRole('button', { name: 'Clear all', exact: true });
     this.errorAlerts = page.getByRole('alert').filter({ hasText: /\S/ });
