@@ -22,7 +22,18 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Playwright browser (cache miss)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Install browser system deps only (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
       - run: npx playwright test
       - uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
@@ -32,6 +43,8 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
+          # test-results/.last-run.json (list of failed tests) is a hidden file; the healer needs it
+          include-hidden-files: true
   heal:
     needs: e2e
     if: ${{ failure() && github.event_name == 'pull_request' }}
@@ -49,17 +62,36 @@ jobs:
         uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - if: steps.guard.outputs.skip != 'true'
-        run: npm ci && npx playwright install --with-deps chromium
+        run: npm ci
+      - name: Cache Playwright browsers
+        if: steps.guard.outputs.skip != 'true'
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Playwright browser (cache miss)
+        if: steps.guard.outputs.skip != 'true' && steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Install browser system deps only (cache hit)
+        if: steps.guard.outputs.skip != 'true' && steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - name: Download e2e results (which tests failed)
+        if: steps.guard.outputs.skip != 'true'
+        uses: actions/download-artifact@v4
+        with: { name: playwright-report, path: . }
       - if: steps.guard.outputs.skip != 'true'
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
             Follow docs/healing-policy.md.
-            Run `npx playwright test`, then use the playwright-test-healer agent
-            to fix the failing tests. Only edit files under tests/, plus specs/*.md
+            The e2e job's failed tests are listed in test-results/.last-run.json.
+            Run `npx playwright test --last-failed` to reproduce only those (don't
+            re-run the whole suite while investigating), then use the
+            playwright-test-healer agent to fix the failing tests. Only edit files under tests/, plus specs/*.md
             only to keep names in step with what you healed.
-            Re-run the suite to confirm. Commit as "heal: <summary>", push to
+            Then run the full `npx playwright test` once to confirm. Commit as "heal: <summary>", push to
             this PR branch, and comment on PR #${{ github.event.pull_request.number }}
             listing each change. Flag any change to an assertion for human review.
           claude_args: |

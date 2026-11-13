@@ -204,3 +204,20 @@ The full policy is in `docs/healing-policy.md` and copied into `CLAUDE.md`. In s
 
 A green run's `npx playwright test` step takes only **18 s**, and installing browsers takes 33 s. So the slowness is all in the *failure* path. The fix is to fail faster and run in parallel, not to add more agents.
 
+
+### Speeding up e2e (what I changed)
+
+| Change | Where | Why |
+|---|---|---|
+| `actionTimeout: 5_000`, `expect.timeout: 5_000`, `timeout: 15_000`, `navigationTimeout: 10_000` | `playwright.config.ts` | A missing element fails after 5 s instead of 30 s |
+| `workers: 4` on CI (was 1) | `playwright.config.ts` | GitHub's Linux runners have 4 CPUs. The tests are independent, so they can run in parallel |
+| `maxFailures: 5` on CI | `playwright.config.ts` | 5+ failures usually have one cause, so stop early and let the healer take over |
+| Cache `~/.cache/ms-playwright` | `ci.yml`, `ai-generate-tests.yml` | Skips downloading the browser on a cache hit (system packages are still installed) |
+| Upload `test-results/` with `include-hidden-files: true`, download it in `heal` | `ci.yml` | `.last-run.json` (the list of failed tests) is a hidden file, which `upload-artifact@v4` skips by default |
+| Healer runs `npx playwright test --last-failed`, then the full suite once | heal prompt | Most of the healer's 16 minutes went into re-running the whole failing suite |
+
+- **Rough estimate for the PR #10 red run:** 5 failures × 2 attempts × ~5 s across 4 workers ≈ **under 1 minute** instead of 15. Not measured with a broken run.
+- **Green run locally with the CI settings:** 20/20 passed in about 24 s.
+- **Retries:** kept `retries: 1` to absorb flaky tests. With fast timeouts and `maxFailures`, retries no longer multiply a mass failure into many minutes.
+- **Would a Claude Code swarm help?** Not here. e2e is plain Playwright with no AI in it, so the fix is fast failure and Playwright's own parallelism (`workers`, `--shard`). The PR #10 heal was one root cause (one page-object locator), so parallel agents would duplicate the work and could make conflicting edits. Parallel agents are worth trying only when a PR breaks many *independent* areas, or to generate tests for several features at once.
+- **Later, if the suite grows:** shard across machines in a matrix (`--shard=1/2`, `--shard=2/2`). At 20 tests, the per-machine setup time costs more than sharding would save.

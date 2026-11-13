@@ -21,13 +21,21 @@ export default defineConfig({
   /* Retry on CI only */
   retries: process.env.CI ? 1 : 0,
   /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
+  /* GitHub's Linux runners have 4 CPUs, so run 4 test files at once on CI. */
+  workers: process.env.CI ? 4 : undefined,
+  /* On CI, stop after 5 failures: that many usually share one cause (e.g. a renamed button), and the healer takes over. */
+  maxFailures: process.env.CI ? 5 : 0,
+  /* Fail fast: a whole test gets 15 s, a missing element or unmet expect fails after 5 s (defaults are 30 s). */
+  timeout: 15_000,
+  expect: { timeout: 5_000 },
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('')`. */
     baseURL: externalURL ?? 'http://localhost:3000',
+    actionTimeout: 5_000,
+    navigationTimeout: 10_000,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',

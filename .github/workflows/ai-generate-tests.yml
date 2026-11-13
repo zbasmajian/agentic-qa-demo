@@ -32,7 +32,20 @@ jobs:
         uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - if: steps.guard.outputs.skip != 'true'
-        run: npm ci && npx playwright install --with-deps chromium
+        run: npm ci
+      - name: Cache Playwright browsers
+        if: steps.guard.outputs.skip != 'true'
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Playwright browser (cache miss)
+        if: steps.guard.outputs.skip != 'true' && steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Install browser system deps only (cache hit)
+        if: steps.guard.outputs.skip != 'true' && steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       # 2. Start the app in the background and wait until it is healthy
       - if: steps.guard.outputs.skip != 'true'
