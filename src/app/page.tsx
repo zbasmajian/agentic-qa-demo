@@ -46,6 +46,14 @@ export default function Home() {
           </li>
         ))}
       </ul>
+      {tasks.length > 0 && (
+        <button
+          onClick={() => setTasks([])}
+          className="mt-4 text-sm text-gray-600 underline"
+        >
+          Clear all
+        </button>
+  )}
     </main>
   );
 }
