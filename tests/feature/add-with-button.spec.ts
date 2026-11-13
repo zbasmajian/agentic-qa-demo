@@ -4,7 +4,7 @@
 import { test, expect, SEEDED_TASK } from '../fixtures';
 
 test.describe('Adding a task', () => {
-  test('Add a valid task with the Add Task button', async ({ taskBoard }) => {
+  test('Add a valid task with the Create Task button', async ({ taskBoard }) => {
     await taskBoard.expectTasks([SEEDED_TASK]);
     await expect(taskBoard.input).toHaveValue('');
 

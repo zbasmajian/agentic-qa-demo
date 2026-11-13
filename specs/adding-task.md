@@ -2,7 +2,7 @@
 
 ## Application Overview
 
-Scope: adding tasks only on http://localhost:3000/. Page has heading "Sprint Task Board", textbox "Task Input" (placeholder "Add a new task..."), button "Add Task", and a list pre-seeded with one task "Deploy CI/CD pipeline" (button "Delete task: Deploy CI/CD pipeline"). Input and button are in a form, so Enter submits. Tasks are in-memory React state only (lost on reload). Observed: no error messages exist; invalid input is silently ignored. The only role=alert on the page is the Next.js dev route announcer, not an app error. Each scenario starts fresh via page.goto('/').
+Scope: adding tasks only on http://localhost:3000/. Page has heading "Sprint Task Board", textbox "Task Input" (placeholder "Add a new task..."), button "Create Task", and a list pre-seeded with one task "Deploy CI/CD pipeline" (button "Delete task: Deploy CI/CD pipeline"). Input and button are in a form, so Enter submits. Tasks are in-memory React state only (lost on reload). Observed: no error messages exist; invalid input is silently ignored. The only role=alert on the page is the Next.js dev route announcer, not an app error. Each scenario starts fresh via page.goto('/').
 
 ## Test Scenarios
 
@@ -10,7 +10,7 @@ Scope: adding tasks only on http://localhost:3000/. Page has heading "Sprint Tas
 
 **Seed:** `tests/seed.spec.ts`
 
-#### 1.1. Add a valid task with the Add Task button
+#### 1.1. Add a valid task with the Create Task button
 
 **File:** `tests/adding-task/add-with-button.spec.ts`
 
@@ -20,7 +20,7 @@ Scope: adding tasks only on http://localhost:3000/. Page has heading "Sprint Tas
     - expect: Textbox 'Task Input' is empty
   2. Fill textbox 'Task Input' with 'Write tests'
     - expect: Textbox shows 'Write tests'
-  3. Click button 'Add Task'
+  3. Click button 'Create Task'
     - expect: List has 2 items; the new item 'Write tests' is last, after 'Deploy CI/CD pipeline'
     - expect: Button 'Delete task: Write tests' is visible
     - expect: Textbox 'Task Input' is cleared (empty)
@@ -51,7 +51,7 @@ Scope: adding tasks only on http://localhost:3000/. Page has heading "Sprint Tas
 **File:** `tests/adding-task/empty-input.spec.ts`
 
 **Steps:**
-  1. Navigate to /; leave 'Task Input' empty; click 'Add Task'
+  1. Navigate to /; leave 'Task Input' empty; click 'Create Task'
     - expect: No task added; list still has 1 item
     - expect: No error text shown; button is NOT disabled (it stays enabled)
     - expect: No native browser validation popup (input has no required attribute)
@@ -63,7 +63,7 @@ Scope: adding tasks only on http://localhost:3000/. Page has heading "Sprint Tas
 **File:** `tests/adding-task/whitespace-only.spec.ts`
 
 **Steps:**
-  1. Navigate to /; fill 'Task Input' with '   ' (three spaces); click 'Add Task'
+  1. Navigate to /; fill 'Task Input' with '   ' (three spaces); click 'Create Task'
     - expect: No task added; list still has 1 item
     - expect: No error message shown
     - expect: Textbox still contains the three spaces (NOT cleared) - observed behavior
@@ -73,7 +73,7 @@ Scope: adding tasks only on http://localhost:3000/. Page has heading "Sprint Tas
 **File:** `tests/adding-task/trim.spec.ts`
 
 **Steps:**
-  1. Navigate to /; fill 'Task Input' with '   padded   '; click 'Add Task'
+  1. Navigate to /; fill 'Task Input' with '   padded   '; click 'Create Task'
     - expect: New item text is exactly 'padded' (no surrounding spaces)
     - expect: Button 'Delete task: padded' is visible
     - expect: Textbox cleared
@@ -83,7 +83,7 @@ Scope: adding tasks only on http://localhost:3000/. Page has heading "Sprint Tas
 **File:** `tests/adding-task/special-characters.spec.ts`
 
 **Steps:**
-  1. Navigate to /; fill 'Task Input' with '<b>bold</b> & <script>alert(1)</script>'; click 'Add Task'
+  1. Navigate to /; fill 'Task Input' with '<b>bold</b> & <script>alert(1)</script>'; click 'Create Task'
     - expect: New item displays the exact literal string '<b>bold</b> & <script>alert(1)</script>'
     - expect: No <b> element exists inside the list (0 matches for li b)
     - expect: No alert dialog fires; no script executes
@@ -103,7 +103,7 @@ Scope: adding tasks only on http://localhost:3000/. Page has heading "Sprint Tas
 **File:** `tests/adding-task/long-text.spec.ts`
 
 **Steps:**
-  1. Navigate to /; fill 'Task Input' with 300 'A' characters; click 'Add Task'
+  1. Navigate to /; fill 'Task Input' with 300 'A' characters; click 'Create Task'
     - expect: Task is added with full 300-character text (no maxlength, no truncation)
     - expect: Observed: text does not wrap; the list item (~3252px scroll width vs ~398px client width) and the page (~3693px vs 1280px viewport) overflow horizontally. Record as a layout defect; the Delete button is pushed far off-screen
 
