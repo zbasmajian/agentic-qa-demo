@@ -11,7 +11,7 @@ test('user can add a task', async ({ page }) => {
   await page.getByRole('textbox', { name: 'Task Input' }).fill('Write my first test');
 
   // 4. Click the add button
-  await page.getByRole('button', { name: 'Add Task' }).click();
+  await page.getByRole('button', { name: 'Create Task' }).click();
 
   // 5. The new task appears, with its own Delete button
   await expect(page.getByText('Write my first test')).toBeVisible();
