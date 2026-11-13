@@ -11,6 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions: { contents: write, pull-requests: write, id-token: write }
+    env:
+      # The app is started once below. Setting BASE_URL makes playwright.config.ts
+      # skip its own webServer (which would fail: port 3000 already in use under CI=true).
+      # Job-level env also reaches the Playwright MCP server the planner/generator use.
+      BASE_URL: http://localhost:3000
     steps:
       # 1. Check out the PR branch (not the merge commit) so Claude can push to it
       - uses: actions/checkout@v4
@@ -44,7 +49,8 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           prompt: |
-            The app is already running at http://localhost:3000.
+            The app is already running at http://localhost:3000 and BASE_URL is set,
+            so Playwright reuses it. Do not start another server.
             Run `gh pr diff ${{ github.event.pull_request.number }}` and identify the
             user-visible changes in this PR (new or changed pages, buttons, fields, flows).
             1. Use the playwright-test-planner agent to add or update a test plan
