@@ -117,8 +117,8 @@ sequenceDiagram
     G->>G: guard: skip if last commit starts with "test:"
     G->>App: npm run build && npm start, wait on /healthz
     G->>G: gh pr diff → find user-visible changes
-    G->>App: planner explores the UI → specs/<feature>.md
-    G->>App: generator writes tests → tests/<feature>/*.spec.ts
+    G->>App: planner explores the UI → specs/{feature}.md
+    G->>App: generator writes tests → tests/{feature}/*.spec.ts
     G->>G: npx playwright test (new + existing must pass)
     G->>PR: push "test: …" commit + PR comment for review
 ```
