@@ -21,9 +21,9 @@ export default function Home() {
       <h1 className="text-2xl font-bold mb-4">Sprint Task Board</h1>
       <form onSubmit={addTask} className="flex gap-2 mb-6">
         <input
-          aria-label="Task Input"
+          aria-label="Task2 Input"
           type="text"
-          placeholder="Add a new task..."
+          placeholder="Add a new task2..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
           className="flex-1 border rounded px-3 py-2"
