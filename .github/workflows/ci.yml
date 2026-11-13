@@ -13,7 +13,6 @@ jobs:
         with: { node-version: 22, cache: npm }
       - run: npm ci
       - run: npm run build
-
   e2e:
     needs: build
     runs-on: ubuntu-latest
@@ -33,3 +32,36 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
+  heal:
+    needs: e2e
+    if: ${{ failure() && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions: { contents: write, pull-requests: write, id-token: write }
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ github.head_ref }}', fetch-depth: 2 }
+      - name: Stop if last commit was already a heal
+        id: guard
+        run: |
+          if git log -1 --pretty=%s | grep -q '^heal:'; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.guard.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - if: steps.guard.outputs.skip != 'true'
+        run: npm ci && npx playwright install --with-deps chromium
+      - if: steps.guard.outputs.skip != 'true'
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Follow docs/healing-policy.md.
+            Run `npx playwright test`, then use the playwright-test-healer agent
+            to fix the failing tests. Only edit files under tests/.
+            Re-run the suite to confirm. Commit as "heal: <summary>", push to
+            this PR branch, and comment on PR #${{ github.event.pull_request.number }}
+            listing each change. Flag any change to an assertion for human review.
+          claude_args: |
+            --max-turns 30
+            --mcp-config .mcp.ci.json
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(npx playwright:*),Bash(git:*),Bash(gh pr comment:*),mcp__playwright-test"

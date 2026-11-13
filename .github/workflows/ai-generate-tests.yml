@@ -1,0 +1,62 @@
+name: ai-generate-tests
+
+on:
+  pull_request:
+    types: [labeled, synchronize]
+
+jobs:
+  ai-generate-tests:
+    # Cost control: only runs when a human adds the 'ai-tests' label
+    if: contains(github.event.pull_request.labels.*.name, 'ai-tests')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions: { contents: write, pull-requests: write, id-token: write }
+    steps:
+      # 1. Check out the PR branch (not the merge commit) so Claude can push to it
+      - uses: actions/checkout@v4
+        with: { ref: '${{ github.head_ref }}', fetch-depth: 2 }
+
+      # Loop guard: don't regenerate on the push Claude itself just made
+      - name: Stop if last commit was already a generated test commit
+        id: guard
+        run: |
+          if git log -1 --pretty=%s | grep -q '^test:'; then echo "skip=true" >> "$GITHUB_OUTPUT"; fi
+
+      # 1. (cont.) Install everything
+      - if: steps.guard.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - if: steps.guard.outputs.skip != 'true'
+        run: npm ci && npx playwright install --with-deps chromium
+
+      # 2. Start the app in the background and wait until it is healthy
+      - if: steps.guard.outputs.skip != 'true'
+        name: Build and start app
+        run: |
+          npm run build && (npm start &)
+          curl --retry 30 --retry-connrefused --retry-delay 1 http://localhost:3000/healthz
+
+      # 3. Let Claude plan + generate tests for what this PR changed
+      - if: steps.guard.outputs.skip != 'true'
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}   # lets `gh pr diff` work
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            The app is already running at http://localhost:3000.
+            Run `gh pr diff ${{ github.event.pull_request.number }}` and identify the
+            user-visible changes in this PR (new or changed pages, buttons, fields, flows).
+            1. Use the playwright-test-planner agent to add or update a test plan
+               in specs/ covering those changes.
+            2. Use the playwright-test-generator agent to write Playwright tests
+               under tests/ from that plan.
+            3. Run `npx playwright test` and make sure the new tests pass.
+            Only edit files under specs/ and tests/. Never change application code.
+            Commit as "test: <summary>", push to this PR branch, and comment on
+            PR #${{ github.event.pull_request.number }} listing the new spec and tests
+            so a human can review them before merging.
+          claude_args: |
+            --max-turns 30
+            --mcp-config .mcp.ci.json
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash(npx playwright:*),Bash(git:*),Bash(gh pr diff:*),Bash(gh pr comment:*),mcp__playwright-test"
