@@ -57,7 +57,8 @@ jobs:
           prompt: |
             Follow docs/healing-policy.md.
             Run `npx playwright test`, then use the playwright-test-healer agent
-            to fix the failing tests. Only edit files under tests/.
+            to fix the failing tests. Only edit files under tests/, plus specs/*.md
+            only to keep names in step with what you healed.
             Re-run the suite to confirm. Commit as "heal: <summary>", push to
             this PR branch, and comment on PR #${{ github.event.pull_request.number }}
             listing each change. Flag any change to an assertion for human review.
