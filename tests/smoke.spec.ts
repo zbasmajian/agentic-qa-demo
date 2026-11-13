@@ -8,7 +8,7 @@ test('user can add a task', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Sprint Task Board' })).toBeVisible();
 
   // 3. Type a new task into the text box
-  await page.getByRole('textbox', { name: 'Task2 Input' }).fill('Write my first test');
+  await page.getByRole('textbox', { name: 'Task Input' }).fill('Write my first test');
 
   // 4. Click the add button
   await page.getByRole('button', { name: 'Add Task' }).click();

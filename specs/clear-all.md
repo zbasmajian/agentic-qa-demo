@@ -2,7 +2,7 @@
 
 ## Application Overview
 
-Scope: the "Clear all" button on http://localhost:3000/. The button renders below the task list only when the list has at least one task; clicking it removes all tasks. Page has heading "Sprint Task Board", textbox "Task2 Input" (the accessible name was changed from "Task Input"; confirm the change is intentional), button "Add Task", and a list pre-seeded with one task "Deploy CI/CD pipeline" (button "Delete task: Deploy CI/CD pipeline"). Tasks are in-memory only (lost on reload). NOTE: the planner's browser setup failed (webServer port conflict with the already-running app under CI=true), so expectations were derived from the PR diff and src/app/page.tsx; all scenarios were then confirmed by running the generated tests against the live app at http://localhost:3000. Each scenario starts fresh via page.goto('/').
+Scope: the "Clear all" button on http://localhost:3000/. The button renders below the task list only when the list has at least one task; clicking it removes all tasks. Page has heading "Sprint Task Board", textbox "Task Input" (placeholder "Add a new task..."), button "Add Task", and a list pre-seeded with one task "Deploy CI/CD pipeline" (button "Delete task: Deploy CI/CD pipeline"). Tasks are in-memory only (lost on reload). NOTE: the planner's browser setup failed (webServer port conflict with the already-running app under CI=true), so expectations were derived from the PR diff and src/app/page.tsx; all scenarios were then confirmed by running the generated tests against the live app at http://localhost:3000. Each scenario starts fresh via page.goto('/').
 
 ## Test Scenarios
 
@@ -67,7 +67,7 @@ Scope: the "Clear all" button on http://localhost:3000/. The button renders belo
 **Steps:**
   1. Navigate to /; click 'Clear all'
     - expect: List empty; 'Clear all' not present
-  2. Fill textbox 'Task2 Input' with 'New task'; click 'Add Task'
+  2. Fill textbox 'Task Input' with 'New task'; click 'Add Task'
     - expect: List has exactly 1 item: 'New task'
     - expect: Button 'Clear all' is visible again
     - expect: Textbox is cleared
@@ -79,7 +79,7 @@ Scope: the "Clear all" button on http://localhost:3000/. The button renders belo
 **File:** `tests/clear-all/input-untouched.spec.ts`
 
 **Steps:**
-  1. Navigate to /; fill textbox 'Task2 Input' with 'Draft text'; click 'Clear all'
+  1. Navigate to /; fill textbox 'Task Input' with 'Draft text'; click 'Clear all'
     - expect: List is empty; 'Clear all' hidden
     - expect: Textbox still shows 'Draft text' (not cleared; Clear all only resets tasks)
   2. Click 'Add Task'
