@@ -13,6 +13,8 @@ export class TaskBoardPage {
   readonly input: Locator;
   readonly addButton: Locator;
   readonly items: Locator;
+  /** Shown below the list only while at least one task exists. */
+  readonly clearAllButton: Locator;
   /** Non-empty alerts. Ignores the empty Next.js route announcer. */
   readonly errorAlerts: Locator;
 
@@ -21,6 +23,7 @@ export class TaskBoardPage {
     this.input = page.getByRole('textbox', { name: 'Task2 Input' });
     this.addButton = page.getByRole('button', { name: 'Add Task' });
     this.items = page.getByRole('listitem');
+    this.clearAllButton = page.getByRole('button', { name: 'Clear all', exact: true });
     this.errorAlerts = page.getByRole('alert').filter({ hasText: /\S/ });
   }
 
