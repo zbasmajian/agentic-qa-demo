@@ -8,7 +8,7 @@ This project is a small **Next.js** website: a one-page "Sprint Task Board" wher
 
 | File | What it does |
 | --- | --- |
-| `src/app/page.tsx` | **The home page.** Builds the task board: a heading, a text box, an "Add Task" button, and a list of tasks with "Delete" buttons. `useState` is how React remembers things while the page is open (the task list and what you've typed). `"use client"` at the top makes the page run in the browser, which the buttons need. Tasks aren't saved, so a refresh resets the list. |
+| `src/app/page.tsx` | **The home page.** Builds the task board: a heading, a text box, a "Create Task" button, and a list of tasks with "Delete" buttons. `useState` is how React remembers things while the page is open (the task list and what you've typed). `"use client"` at the top makes the page run in the browser, which the buttons need. Tasks aren't saved, so a refresh resets the list. |
 | `src/app/healthz/route.ts` | **The health check.** Answers http://localhost:3000/healthz with `{"status":"ok"}`. Robots (Playwright, Docker, Kubernetes) call it to ask "is the app alive?". `await connection()` makes Next.js answer fresh on every request instead of reusing a saved copy from build time. |
 | `src/app/layout.tsx` | The frame around every page. Creates the `<html>` and `<body>` tags, loads the Geist fonts, and sets the browser tab title. The current page goes where it says `{children}`. |
 | `src/app/globals.css` | Styles for the whole site. Its first line turns on **Tailwind**, which is why `page.tsx` can use class names like `bg-blue-600` or `rounded`. Also sets light and dark mode colors. |
@@ -136,7 +136,8 @@ I made deliberate app bugs and watched how `playwright-test-healer` handled the 
 
 The full policy is in `docs/healing-policy.md` and copied into `CLAUDE.md`. In short:
 - **Healer may:** edit `tests/` only, when the test is out of date and the app works: locators, timing, test data.
-- **Never:** edit `src/`, the config or `specs/`, or turn a test green by loosening assertions, using `fixme`/`skip`, or switching to CSS/XPath selectors.
+- **Plans:** since Lab 7 it may also update `specs/*.md`, but only to keep names in step with a change it healed (for example a renamed button). It may never change what a plan expects.
+- **Never:** edit `src/` or the config, or turn a test green by loosening assertions, using `fixme`/`skip`, or switching to CSS/XPath selectors.
 - **Ask a human for:** app bugs (5xx, runtime errors, a blank page, behavior that contradicts the spec), renames that may be accidental, and fixes that would change more than a few locators.
 
 ## Lab 7 – Agents in CI: auto-heal and auto-generate
@@ -174,4 +175,49 @@ The full policy is in `docs/healing-policy.md` and copied into `CLAUDE.md`. In s
 - The label trigger and the turn cap kept the cost small and predictable: about $0.42 for a full plan plus 8 tests.
 - Loop guards matter. Without the `test:` check, Claude's own push would start another paid run.
 - The policy in `CLAUDE.md` worked in CI too: the agent edited only `specs/` and `tests/`, and raised the questions that needed a human.
-- Still to do: the heal checkpoint (a PR that renames a button: red → `heal:` commit → green).
+- Heal checkpoint done in PR #10 (below).
+
+### Heal run: PR #10 "Rename Add Task button to Create Task"
+
+- **Change:** in `src/app/page.tsx`, the submit button's text went from `Add Task` to `Create Task`. The PR description said the rename was intentional.
+- **Red e2e:** 14 of 20 tests failed. Each one timed out on `getByRole('button', { name: 'Add Task' })`. The e2e job took **15m05s**.
+- **Heal job:** ran after e2e failed and pushed `heal: update Add Task button locator to Create Task`. It changed 2 lines, both locators:
+  - `tests/pages/task-board-page.ts:24` (the page object's `addButton`, used by most tests)
+  - `tests/smoke.spec.ts:14`
+
+  It changed no assertions and didn't touch `src/`. It checked the new name in a live page snapshot before fixing anything, and listed every change in a PR comment.
+- **Green e2e:** 20/20 passed. I didn't have to re-run anything. The healer pushed with the Claude GitHub App's token, and those pushes start CI by themselves (pushes with the default `GITHUB_TOKEN` don't).
+- **Cost:** 10 turns, about **$0.42**, but **about 16 minutes** of Claude time. Most of it went into re-running the failing suite, where each test waited out its 30 s timeout.
+- **Total time from push to green:** about 33 minutes. That's the main problem to fix (see "Why the red run took 15 minutes" below).
+- **Healer flagged:** the plans in `specs/adding-task.md` and `specs/clear-all.md` still said "Add Task", and the policy didn't allow it to edit `specs/`. **Changed:** the policy (in `CLAUDE.md`, `docs/healing-policy.md` and the heal prompt in `ci.yml`) now lets the healer update `specs/*.md` *only to keep names in step* with a change it healed. It still can't change what a plan expects. I updated the plans, a test title and a code comment to say "Create Task" in the same PR.
+- **Loop guard caveat:** on the green run, `heal` was skipped because e2e passed (`if: failure()`), not because of the `heal:` guard. The guard only matters when e2e fails *and* the last commit is `heal:`. It still needs its own proof.
+
+### Why the red run took 15 minutes
+
+| | Value |
+|---|---|
+| Failing tests | 14 |
+| Attempts per test | 2 (`retries: 1` on CI) |
+| Time per attempt | 30 s (Playwright's default test timeout; a missing locator waits for all of it) |
+| Workers on CI | 1 (tests run one at a time) |
+| **Total** | 14 × 2 × 30 s ≈ **14 min** |
+
+A green run's `npx playwright test` step takes only **18 s**, and installing browsers takes 33 s. So the slowness is all in the *failure* path. The fix is to fail faster and run in parallel, not to add more agents.
+
+
+### Speeding up e2e (what I changed)
+
+| Change | Where | Why |
+|---|---|---|
+| `actionTimeout: 5_000`, `expect.timeout: 5_000`, `timeout: 15_000`, `navigationTimeout: 10_000` | `playwright.config.ts` | A missing element fails after 5 s instead of 30 s |
+| `workers: 4` on CI (was 1) | `playwright.config.ts` | GitHub's Linux runners have 4 CPUs. The tests are independent, so they can run in parallel |
+| `maxFailures: 5` on CI | `playwright.config.ts` | 5+ failures usually have one cause, so stop early and let the healer take over |
+| Cache `~/.cache/ms-playwright` | `ci.yml`, `ai-generate-tests.yml` | Skips downloading the browser on a cache hit (system packages are still installed) |
+| Upload `test-results/` with `include-hidden-files: true`, download it in `heal` | `ci.yml` | `.last-run.json` (the list of failed tests) is a hidden file, which `upload-artifact@v4` skips by default |
+| Healer runs `npx playwright test --last-failed`, then the full suite once | heal prompt | Most of the healer's 16 minutes went into re-running the whole failing suite |
+
+- **Rough estimate for the PR #10 red run:** 5 failures × 2 attempts × ~5 s across 4 workers ≈ **under 1 minute** instead of 15. Not measured with a broken run.
+- **Green run locally with the CI settings:** 20/20 passed in about 24 s.
+- **Retries:** kept `retries: 1` to absorb flaky tests. With fast timeouts and `maxFailures`, retries no longer multiply a mass failure into many minutes.
+- **Would a Claude Code swarm help?** Not here. e2e is plain Playwright with no AI in it, so the fix is fast failure and Playwright's own parallelism (`workers`, `--shard`). The PR #10 heal was one root cause (one page-object locator), so parallel agents would duplicate the work and could make conflicting edits. Parallel agents are worth trying only when a PR breaks many *independent* areas, or to generate tests for several features at once.
+- **Later, if the suite grows:** shard across machines in a matrix (`--shard=1/2`, `--shard=2/2`). At 20 tests, the per-machine setup time costs more than sharding would save.

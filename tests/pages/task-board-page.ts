@@ -31,7 +31,7 @@ export class TaskBoardPage {
     await this.page.goto('/');
   }
 
-  /** Type a task and submit it with the Add Task button (default) or the Enter key. */
+  /** Type a task and submit it with the Create Task button (default) or the Enter key. */
   async addTask(name: string, { via = 'button' }: { via?: 'button' | 'enter' } = {}) {
     await this.input.fill(name);
     if (via === 'enter') {
