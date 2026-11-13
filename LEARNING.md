@@ -138,3 +138,40 @@ The full policy is in `docs/healing-policy.md` and copied into `CLAUDE.md`. In s
 - **Healer may:** edit `tests/` only, when the test is out of date and the app works: locators, timing, test data.
 - **Never:** edit `src/`, the config or `specs/`, or turn a test green by loosening assertions, using `fixme`/`skip`, or switching to CSS/XPath selectors.
 - **Ask a human for:** app bugs (5xx, runtime errors, a blank page, behavior that contradicts the spec), renames that may be accidental, and fixes that would change more than a few locators.
+
+## Lab 7 – Agents in CI: auto-heal and auto-generate
+
+### Setup mistakes I fixed along the way
+
+- **Wrong folder:** I first saved `ai-generate-tests.yml` in `.github/`. GitHub only runs workflows from `.github/workflows/`.
+- **YAML indentation:** `types: [labeled, synchronize]` has to be indented *under* `pull_request:`. At the same level, it isn't attached to the trigger.
+- **Windows-only MCP config:** `.mcp.json` starts the Playwright MCP server with `cmd /c npx ...`, which fails on the Ubuntu runner. I added `.mcp.ci.json` (plain `npx playwright run-test-mcp-server`) and pointed both the `heal` job and `ai-generate-tests` at it. `.mcp.json` stays as it is for local use on Windows.
+- **Empty API key secret:** the first run failed with `Either ANTHROPIC_API_KEY ... is required`. The secret *name* existed, but the value was empty: the paste into the hidden `gh secret set` prompt hadn't gone through. The log showed `ANTHROPIC_API_KEY:` with nothing after it (a real secret shows as `***`). I re-entered it through GitHub → Settings → Secrets and variables → Actions, where I could see what I pasted.
+- The `ai-tests` label has to exist in the repo before you can add it to a PR (`gh label create ai-tests`).
+
+### Generate run: PR #7 "Adding clear all button"
+
+- **Change:** a `Clear all` button below the task list, shown only when there is at least one task.
+- **Trigger:** PR opened with the `ai-tests` label → `ai-generate-tests` ran.
+- **What Claude produced:** one commit, `test: add plan and Playwright tests for Clear all button`:
+  - `specs/clear-all.md`: plan with 8 scenarios (planner)
+  - `tests/clear-all/*.spec.ts`: 8 tests (generator)
+  - `tests/pages/task-board-page.ts`: a new `clearAllButton` locator
+  - a PR comment listing every file, for human review
+- **Results:** 20/20 tests passed (8 new + 12 existing). No app code, config or existing assertions changed.
+- **Cost:** 9 turns, about 105 s of Claude time, about **$0.42** for the run. The whole job took 2m50s, including install and build.
+- **Loop guard worked:** Claude's push started `ai-generate-tests` again (a `synchronize` event), and it skipped itself in 6 s because the last commit started with `test:`. CI (`build` → `e2e`) then passed on the new commit, and `heal` was correctly skipped.
+- I reviewed the plan and tests, then merged PR #7.
+
+### What Claude flagged, and what I did about it
+
+1. **Browser tools failed in CI:** with `CI=true`, `playwright.config.ts` tries to start its own server on port 3000. The workflow had already started the app there, so the planner/generator browser setup failed. Claude wrote the plan from `gh pr diff` and the page source instead, then checked every scenario by running the tests with `BASE_URL=http://localhost:3000`. **Lesson:** the agent stayed inside its allowed files and reported the problem instead of editing the config. The workflow should tell Playwright to reuse the already-running app (still to do).
+2. **`Task2 Input` on main:** Claude noticed the input's accessible name was `Task2 Input`, while `specs/adding-task.md` says `Task Input`, and asked whether that was intended. It wasn't. It came from the Lab 5 healer exercise (Heal 1 above), where the healer accepted the rename and locked it into the tests. **Fixed:** the label and placeholder are back to `Task Input` / `Add a new task...` in `src/app/page.tsx`, with the matching locators in `tests/pages/task-board-page.ts` and `tests/smoke.spec.ts`, and the description in `specs/clear-all.md`. **Lesson:** this is the risk I noted in Lab 5. A healer that "fixes" tests to match an accidental change hides the bug. It took a second agent comparing against the spec, plus a human decision, to catch it.
+3. **Clear all keeps the input text:** one test records that clicking Clear all doesn't empty the text box. I confirmed that's the intended behavior.
+
+### Key takeaways
+
+- The label trigger and the turn cap kept the cost small and predictable: about $0.42 for a full plan plus 8 tests.
+- Loop guards matter. Without the `test:` check, Claude's own push would start another paid run.
+- The policy in `CLAUDE.md` worked in CI too: the agent edited only `specs/` and `tests/`, and raised the questions that needed a human.
+- Still to do: the heal checkpoint (a PR that renames a button: red → `heal:` commit → green), and fixing the port 3000 `webServer` conflict.
