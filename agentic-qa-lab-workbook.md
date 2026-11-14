@@ -4,7 +4,7 @@ Nov 11, 2026 · @Zohrab
 
 ## How to use this workbook
 
-You will build the whole pipeline yourself, on your own app in `C:\Workspace\agentic-qa-demo`, across 11 labs and a capstone. By the end, every push runs Playwright tests in GitHub Actions, AI agents plan, generate and heal those tests, and the app is built into a container and deployed to a Kind (Kubernetes in Docker) cluster before the tests run against it.
+You will build the whole pipeline yourself, on your own app in `C:\Workspace\agentic-ai-demo`, across 11 labs and a capstone. By the end, every push runs Playwright tests in GitHub Actions, AI agents plan, generate and heal those tests, and the app is built into a container and deployed to a Kind (Kubernetes in Docker) cluster before the tests run against it.
 
 **Every lab has the same parts:**
 
@@ -79,7 +79,7 @@ This lab adds all three.
 
 ### Part A – Get to know your project (15 min)
 
-1. Open VS Code. Choose **File → Open Folder…**, select `C:\Workspace\agentic-qa-demo`, and click **Select Folder**. The **Explorer** panel on the left now lists your project's files.
+1. Open VS Code. Choose **File → Open Folder…**, select `C:\Workspace\agentic-ai-demo`, and click **Select Folder**. The **Explorer** panel on the left now lists your project's files.
 2. Open a terminal inside VS Code with **View → Terminal** (or press Ctrl+\`). A panel opens at the bottom, already *in* your project folder. Every command in this workbook is typed here.
 3. In Explorer, click `package.json` to open it. This file is your project's ID card. Find these two sections:
    - `"scripts"`: shortcuts you run with `npm run <name>`. For example, `"dev": "..."` means `npm run dev` runs whatever is on the right.
@@ -288,7 +288,7 @@ git commit -m "Lab 1: health check, PORT, build scripts"
 4. Create the GitHub repo and upload your snapshot in one command:
 
 ```powershell
-gh repo create agentic-qa-demo --public --source . --remote origin --push
+gh repo create agentic-ai-demo --public --source . --remote origin --push
 ```
 
 - `--public` keeps branch protection free. See the note in Part I.
@@ -632,7 +632,7 @@ CMD ["node", "dist/server.js"]
 ```
 
 2. Write `.dockerignore` listing `node_modules`, `dist`, `test-results`, `playwright-report`, `.git` and `.env`.
-3. Build and run it: `docker build -t agentic-qa-demo:dev .`, then `docker run --rm -p 3000:3000 agentic-qa-demo:dev`.
+3. Build and run it: `docker build -t agentic-ai-demo:dev .`, then `docker run --rm -p 3000:3000 agentic-ai-demo:dev`.
 4. With the container running, run your tests against it: `$env:BASE_URL='http://localhost:3000'; npx playwright test`.
 
 **Checkpoint**
@@ -669,22 +669,22 @@ nodes:
 ```
 
 2. Create `k8s/app.yaml` containing a Deployment and a Service. Write it yourself from this outline:
-   - **Deployment** `agentic-qa-demo`: 2 replicas, image `agentic-qa-demo:dev`, `imagePullPolicy: IfNotPresent`, container port 3000, readiness and liveness probes on `GET /healthz`, and CPU/memory requests and limits
+   - **Deployment** `agentic-ai-demo`: 2 replicas, image `agentic-ai-demo:dev`, `imagePullPolicy: IfNotPresent`, container port 3000, readiness and liveness probes on `GET /healthz`, and CPU/memory requests and limits
    - **Service**: type `NodePort`, port 80 → targetPort 3000, `nodePort: 30080`
 3. Run the full local loop:
 
 ```powershell
 kind create cluster --name qa --config k8s/kind-config.yaml
-docker build -t agentic-qa-demo:dev .
-kind load docker-image agentic-qa-demo:dev --name qa
+docker build -t agentic-ai-demo:dev .
+kind load docker-image agentic-ai-demo:dev --name qa
 kubectl apply -f k8s/app.yaml
-kubectl rollout status deployment/agentic-qa-demo --timeout=120s
+kubectl rollout status deployment/agentic-ai-demo --timeout=120s
 curl http://localhost:8080/healthz
 $env:BASE_URL='http://localhost:8080'; npx playwright test
 ```
 
-4. Explore the cluster: `kubectl get pods -o wide`, `kubectl logs deploy/agentic-qa-demo`, and `kubectl describe pod <name>`. Delete a pod and watch Kubernetes replace it.
-5. Change the app, rebuild with tag `:dev2`, `kind load` it, then `kubectl set image deployment/agentic-qa-demo app=agentic-qa-demo:dev2` (the `app=` part is the container name you used in `app.yaml`). Watch the rolling update.
+4. Explore the cluster: `kubectl get pods -o wide`, `kubectl logs deploy/agentic-ai-demo`, and `kubectl describe pod <name>`. Delete a pod and watch Kubernetes replace it.
+5. Change the app, rebuild with tag `:dev2`, `kind load` it, then `kubectl set image deployment/agentic-ai-demo app=agentic-ai-demo:dev2` (the `app=` part is the container name you used in `app.yaml`). Watch the rolling update.
 6. Clean up: `kind delete cluster --name qa`.
 
 **Checkpoint**
@@ -711,7 +711,7 @@ $env:BASE_URL='http://localhost:8080'; npx playwright test
     needs: e2e
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    env: { IMAGE: 'agentic-qa-demo:${{ github.sha }}' }
+    env: { IMAGE: 'agentic-ai-demo:${{ github.sha }}' }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -721,16 +721,16 @@ $env:BASE_URL='http://localhost:8080'; npx playwright test
       - run: docker build -t "$IMAGE" .
       - run: kind load docker-image "$IMAGE" --name qa
       - run: |
-          sed "s|agentic-qa-demo:dev|$IMAGE|" k8s/app.yaml | kubectl apply -f -
-          kubectl rollout status deployment/agentic-qa-demo --timeout=180s
+          sed "s|agentic-ai-demo:dev|$IMAGE|" k8s/app.yaml | kubectl apply -f -
+          kubectl rollout status deployment/agentic-ai-demo --timeout=180s
       - run: npm ci && npx playwright install --with-deps chromium
       - run: npx playwright test
         env: { BASE_URL: 'http://localhost:8080' }
       - if: failure()
-        run: kubectl get pods -o wide && kubectl describe pods && kubectl logs deploy/agentic-qa-demo --all-containers
+        run: kubectl get pods -o wide && kubectl describe pods && kubectl logs deploy/agentic-ai-demo --all-containers
 ```
 
-2. Add a `publish` job that runs only on `main`, with `needs: kind-e2e`, `if: github.ref == 'refs/heads/main'`, and `permissions: { contents: read, packages: write }`. Using `docker/login-action` (registry `ghcr.io`, username `${{ github.actor }}`, password `${{ secrets.GITHUB_TOKEN }}`) and `docker/build-push-action`, push `ghcr.io/<your-user>/agentic-qa-demo:${{ github.sha }}` and `:main`.
+2. Add a `publish` job that runs only on `main`, with `needs: kind-e2e`, `if: github.ref == 'refs/heads/main'`, and `permissions: { contents: read, packages: write }`. Using `docker/login-action` (registry `ghcr.io`, username `${{ github.actor }}`, password `${{ secrets.GITHUB_TOKEN }}`) and `docker/build-push-action`, push `ghcr.io/<your-user>/agentic-ai-demo:${{ github.sha }}` and `:main`.
 3. Add `kind-e2e` to the required checks on `main`.
 4. Break the deploy on purpose (for example, point the readiness probe at `/nope`). Confirm that the PR goes red at `kind-e2e`, and that the debug step's logs show why.
 

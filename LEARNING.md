@@ -229,7 +229,7 @@ A green run's `npx playwright test` step takes only **18 s**, and installing bro
 | File | What it does |
 | --- | --- |
 | `k8s/kind-config.yaml` | Tells kind how to build the cluster: one `control-plane` node (one Docker container) and an `extraPortMappings` entry that forwards `localhost:8080` on my laptop to port `30080` inside the node. Only read when the cluster is created. |
-| `k8s/app.yaml` | Tells Kubernetes what to run in the cluster. A **Deployment** keeps 2 pods of `agentic-qa-demo:dev` running, with readiness/liveness probes on `/healthz` and CPU/memory requests and limits. A **Service** of type `NodePort` opens port `30080` on the node and forwards it to port `3000` in the pods. Every field is commented in the file. |
+| `k8s/app.yaml` | Tells Kubernetes what to run in the cluster. A **Deployment** keeps 2 pods of `agentic-ai-demo:dev` running, with readiness/liveness probes on `/healthz` and CPU/memory requests and limits. A **Service** of type `NodePort` opens port `30080` on the node and forwards it to port `3000` in the pods. Every field is commented in the file. |
 
 How a request gets from my laptop to the app:
 
@@ -241,10 +241,10 @@ localhost:8080 → (kind-config) node:30080 → (Service nodePort) → Service:8
 
 ```powershell
 kind create cluster --name qa --config k8s/kind-config.yaml
-docker build -t agentic-qa-demo:dev .
-kind load docker-image agentic-qa-demo:dev --name qa
+docker build -t agentic-ai-demo:dev .
+kind load docker-image agentic-ai-demo:dev --name qa
 kubectl apply -f k8s/app.yaml
-kubectl rollout status deployment/agentic-qa-demo --timeout=120s
+kubectl rollout status deployment/agentic-ai-demo --timeout=120s
 curl http://localhost:8080/healthz
 $env:BASE_URL='http://localhost:8080'; npx playwright test
 ```
@@ -256,13 +256,13 @@ $env:BASE_URL='http://localhost:8080'; npx playwright test
 - Tied to the config: port mappings and node count are fixed **at creation**. Changing `kind-config.yaml` later does nothing until I run `kind delete cluster --name qa` and create it again.
 - If something on my laptop already uses port 8080, this step fails.
 
-**2. `docker build -t agentic-qa-demo:dev .`: build the image**
+**2. `docker build -t agentic-ai-demo:dev .`: build the image**
 - Builds the app into an image using the `Dockerfile` from Lab 8. `.` means "use this folder as the build context" (minus what `.dockerignore` excludes).
-- `-t agentic-qa-demo:dev` tags the image. The tag must match `image: agentic-qa-demo:dev` in `app.yaml` exactly, or the pods can't find it.
+- `-t agentic-ai-demo:dev` tags the image. The tag must match `image: agentic-ai-demo:dev` in `app.yaml` exactly, or the pods can't find it.
 - The image only exists in Docker on my laptop at this point. The cluster can't see it yet.
 - It doesn't depend on the cluster, so it can run before step 1.
 
-**3. `kind load docker-image agentic-qa-demo:dev --name qa`: copy the image into the cluster**
+**3. `kind load docker-image agentic-ai-demo:dev --name qa`: copy the image into the cluster**
 - The kind node has its own image store, separate from my laptop's Docker. This copies the image from my laptop into the node, with no registry involved.
 - `--name qa` must match the cluster name from step 1.
 - Tied to `app.yaml`: this works only because of `imagePullPolicy: IfNotPresent` ("the image is already on the node, use it"). With the tag `latest`, Kubernetes defaults to `Always`, tries to download it from Docker Hub, and the pod fails with `ErrImagePull`. Skipping this step causes the same error.
@@ -273,11 +273,11 @@ $env:BASE_URL='http://localhost:8080'; npx playwright test
 - `apply` is declarative: I describe what I want, and Kubernetes works out what to change. Running it twice with the same file changes nothing.
 - The command returns straight away. The pods are still starting in the background.
 
-**5. `kubectl rollout status deployment/agentic-qa-demo --timeout=120s`: wait until it's ready**
+**5. `kubectl rollout status deployment/agentic-ai-demo --timeout=120s`: wait until it's ready**
 - Waits until the Deployment has all its pods ready, or gives up after 120 s.
-- `deployment/agentic-qa-demo` is `metadata.name` from `app.yaml`.
+- `deployment/agentic-ai-demo` is `metadata.name` from `app.yaml`.
 - "Done" means `replicas: 2` pods are running **and** passing the `readinessProbe` on `/healthz`. If the probe never passes (wrong port, broken app), this times out.
-- When it fails, look with `kubectl get pods`, `kubectl describe pod <name>` and `kubectl logs deploy/agentic-qa-demo`.
+- When it fails, look with `kubectl get pods`, `kubectl describe pod <name>` and `kubectl logs deploy/agentic-ai-demo`.
 
 **6. `curl http://localhost:8080/healthz`: check the whole path by hand**
 - Sends one request through the whole chain: laptop `8080` → node `30080` (kind-config) → Service → pod `3000` (app.yaml) → the `/healthz` route.
@@ -294,9 +294,9 @@ $env:BASE_URL='http://localhost:8080'; npx playwright test
 | --- | --- | --- |
 | Cluster name `qa` | command line | `kind create` (`--name qa`), `kind load` (`--name qa`), `kind delete` |
 | `extraPortMappings` 8080 → 30080 | `kind-config.yaml` | `kind create`; makes `curl` and Playwright on `localhost:8080` work |
-| Image tag `agentic-qa-demo:dev` | `app.yaml` `image:` | must match `docker build -t` and `kind load` |
+| Image tag `agentic-ai-demo:dev` | `app.yaml` `image:` | must match `docker build -t` and `kind load` |
 | `imagePullPolicy: IfNotPresent` | `app.yaml` | makes `kind load` enough, with no registry |
-| `metadata.name: agentic-qa-demo` | `app.yaml` | `kubectl rollout status deployment/...`, `kubectl logs deploy/...`, `kubectl set image` |
+| `metadata.name: agentic-ai-demo` | `app.yaml` | `kubectl rollout status deployment/...`, `kubectl logs deploy/...`, `kubectl set image` |
 | `replicas: 2` + `readinessProbe` | `app.yaml` | decide when `rollout status` reports success |
 | `nodePort: 30080` | `app.yaml` Service | must equal `containerPort: 30080` in `kind-config.yaml` |
 | `containerPort` / `targetPort: 3000` | `app.yaml` | must equal the port Next.js listens on |
@@ -307,18 +307,18 @@ $env:BASE_URL='http://localhost:8080'; npx playwright test
 I renamed the button in `src/app/page.tsx` to "Clear everything", then shipped the change to the running cluster without downtime.
 
 ```powershell
-docker build -t agentic-qa-demo:dev2 .
-kind load docker-image agentic-qa-demo:dev2 --name qa
-kubectl set image deployment/agentic-qa-demo app=agentic-qa-demo:dev2
-kubectl rollout status deployment/agentic-qa-demo --timeout=120s
+docker build -t agentic-ai-demo:dev2 .
+kind load docker-image agentic-ai-demo:dev2 --name qa
+kubectl set image deployment/agentic-ai-demo app=agentic-ai-demo:dev2
+kubectl rollout status deployment/agentic-ai-demo --timeout=120s
 ```
 
-**1. `docker build -t agentic-qa-demo:dev2 .`: build the changed app as a new image**
+**1. `docker build -t agentic-ai-demo:dev2 .`: build the changed app as a new image**
 - Builds a new image with the renamed button. The Dockerfile copies `src/` and runs `next build` again.
-- **Why a new tag (`:dev2`):** Kubernetes only starts a rolling update when the pod template changes. If I rebuilt as `:dev`, the template would still say `agentic-qa-demo:dev`, so Kubernetes would see nothing new and keep the old pods. And because of `IfNotPresent`, any new pod would reuse the old `:dev` image already on the node.
+- **Why a new tag (`:dev2`):** Kubernetes only starts a rolling update when the pod template changes. If I rebuilt as `:dev`, the template would still say `agentic-ai-demo:dev`, so Kubernetes would see nothing new and keep the old pods. And because of `IfNotPresent`, any new pod would reuse the old `:dev` image already on the node.
 - `:dev` still exists, so I can switch back to it later.
 
-**2. `kind load docker-image agentic-qa-demo:dev2 --name qa`: copy the new image into the cluster**
+**2. `kind load docker-image agentic-ai-demo:dev2 --name qa`: copy the new image into the cluster**
 - The same as in Step 3. Without it, the new pods fail with `ErrImagePull`, because the node has no `:dev2` yet.
 
 **3. (Optional) Open two more windows to watch**
@@ -334,41 +334,41 @@ while ($true) { curl.exe -s -o NUL -w "%{http_code}`n" http://localhost:8080/hea
 ```
 - It prints one HTTP code about three times a second. If every line stays `200` during the update, no requests failed. `Ctrl+C` stops it.
 
-**4. `kubectl set image deployment/agentic-qa-demo app=agentic-qa-demo:dev2`: tell the Deployment to use the new image**
-- `deployment/agentic-qa-demo` is the `metadata.name` from `app.yaml`.
-- `app=` is the **container name** (`name: app`), and `agentic-qa-demo:dev2` is its new image.
+**4. `kubectl set image deployment/agentic-ai-demo app=agentic-ai-demo:dev2`: tell the Deployment to use the new image**
+- `deployment/agentic-ai-demo` is the `metadata.name` from `app.yaml`.
+- `app=` is the **container name** (`name: app`), and `agentic-ai-demo:dev2` is its new image.
 - This changes the pod template, which starts the rolling update:
   1. Kubernetes starts 1 new pod with `:dev2`. The pod names get a **new hash**, because the template changed.
   2. The new pod gets traffic only after its **readinessProbe** passes. That's why window 3 keeps showing `200`.
   3. Once it's ready, one old pod is stopped.
   4. Kubernetes repeats this until both pods run `:dev2`.
 
-**5. `kubectl rollout status deployment/agentic-qa-demo --timeout=120s`: wait for the update to finish**
+**5. `kubectl rollout status deployment/agentic-ai-demo --timeout=120s`: wait for the update to finish**
 - The same command as in Step 3. It returns once both new pods are ready.
 
 **6. Check the result**
 ```powershell
 kubectl get pods -o wide
-kubectl describe deployment agentic-qa-demo
-kubectl rollout history deployment/agentic-qa-demo
+kubectl describe deployment agentic-ai-demo
+kubectl rollout history deployment/agentic-ai-demo
 ```
 - **`get pods`:** 2 pods with a **different hash** in their names than before.
-- **`describe deployment`:** the `Image:` line says `agentic-qa-demo:dev2`, and the `Events` at the bottom show the old ReplicaSet scaling down while the new one scales up.
+- **`describe deployment`:** the `Image:` line says `agentic-ai-demo:dev2`, and the `Events` at the bottom show the old ReplicaSet scaling down while the new one scales up.
 - **`rollout history`:** lists revision 1 (`:dev`) and revision 2 (`:dev2`).
 - Open http://localhost:8080 in the browser to see the renamed button.
 
-**7. (Good to know) `kubectl rollout undo deployment/agentic-qa-demo`: undo the update**
+**7. (Good to know) `kubectl rollout undo deployment/agentic-ai-demo`: undo the update**
 - Goes back to the previous revision (`:dev`), using the same kind of rolling update.
 
 **Alternative to step 4: edit `app.yaml` and apply it**
 
 Instead of `kubectl set image`, I can change the image in the file and apply the whole file (there's no `kubectl apply image` command):
 
-1. In `k8s/app.yaml`, change the image line to `image: agentic-qa-demo:dev2`.
+1. In `k8s/app.yaml`, change the image line to `image: agentic-ai-demo:dev2`.
 2. Apply it and wait:
    ```powershell
    kubectl apply -f k8s/app.yaml
-   kubectl rollout status deployment/agentic-qa-demo --timeout=120s
+   kubectl rollout status deployment/agentic-ai-demo --timeout=120s
    ```
 
 `docker build` and `kind load` with `:dev2` are still needed first. `kubectl apply` compares the file with what's running. Only the image changed, so it updates the pod template, and that starts **exactly the same rolling update** as `set image`: new pod hash, readiness probe controls traffic, no failed requests.
@@ -382,9 +382,9 @@ Instead of `kubectl set image`, I can change the image in the file and apply the
 
 With `set image`, the cluster and the file disagree, and the next apply quietly rolls the update back. Editing the file keeps it the single source of truth. The lab uses `set image` because it's quick to show, not because it's the recommended way.
 
-**Catch for Lab 10:** CI changes the image with `sed "s|agentic-qa-demo:dev|$IMAGE|" k8s/app.yaml`. `sed` replaces text, and `agentic-qa-demo:dev` also matches the start of `agentic-qa-demo:dev2`. If `:dev2` is committed, CI produces `agentic-qa-demo:<sha>2`, an image that doesn't exist, and `kind-e2e` fails with `ErrImagePull`. Before Lab 10, either:
-- set `app.yaml` back to `image: agentic-qa-demo:dev` (simplest, matches the workbook), **or**
-- make the `sed` match the whole line: `sed "s|image: agentic-qa-demo:.*|image: $IMAGE|"`.
+**Catch for Lab 10:** CI changes the image with `sed "s|agentic-ai-demo:dev|$IMAGE|" k8s/app.yaml`. `sed` replaces text, and `agentic-ai-demo:dev` also matches the start of `agentic-ai-demo:dev2`. If `:dev2` is committed, CI produces `agentic-ai-demo:<sha>2`, an image that doesn't exist, and `kind-e2e` fails with `ErrImagePull`. Before Lab 10, either:
+- set `app.yaml` back to `image: agentic-ai-demo:dev` (simplest, matches the workbook), **or**
+- make the `sed` match the whole line: `sed "s|image: agentic-ai-demo:.*|image: $IMAGE|"`.
 
 **Things to watch out for**
 - **The image tag in `app.yaml` still says `:dev`.** `kubectl set image` changes the cluster, not the file. Running `kubectl apply -f k8s/app.yaml` later switches back to `:dev`. That's fine for this lab, because Lab 10 relies on `app.yaml` saying `:dev`.
@@ -417,7 +417,7 @@ Pipeline order: `build → e2e → kind-e2e` (and later `→ publish` on `main`)
     needs: e2e
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    env: { IMAGE: 'agentic-qa-demo:${{ github.sha }}' }
+    env: { IMAGE: 'agentic-ai-demo:${{ github.sha }}' }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -427,13 +427,13 @@ Pipeline order: `build → e2e → kind-e2e` (and later `→ publish` on `main`)
       - run: docker build -t "$IMAGE" .
       - run: kind load docker-image "$IMAGE" --name qa
       - run: |
-          sed "s|agentic-qa-demo:dev|$IMAGE|" k8s/app.yaml | kubectl apply -f -
-          kubectl rollout status deployment/agentic-qa-demo --timeout=180s
+          sed "s|agentic-ai-demo:dev|$IMAGE|" k8s/app.yaml | kubectl apply -f -
+          kubectl rollout status deployment/agentic-ai-demo --timeout=180s
       - run: npm ci && npx playwright install --with-deps chromium
       - run: npx playwright test
         env: { BASE_URL: 'http://localhost:8080' }
       - if: failure()
-        run: kubectl get pods -o wide && kubectl describe pods && kubectl logs deploy/agentic-qa-demo --all-containers
+        run: kubectl get pods -o wide && kubectl describe pods && kubectl logs deploy/agentic-ai-demo --all-containers
 ```
 
 **Job settings**
@@ -441,7 +441,7 @@ Pipeline order: `build → e2e → kind-e2e` (and later `→ publish` on `main`)
 - **`needs: e2e`** means it runs only after `e2e` passes. There's no point deploying an app whose plain tests already fail, and it saves runner time. If `e2e` fails, `kind-e2e` is skipped (and the `heal` job takes over, as before).
 - **`runs-on: ubuntu-latest`** gives a fresh Linux machine with Docker already installed. Linux file names are case-sensitive, which is why the folder must be `k8s`, not `K8s`.
 - **`timeout-minutes: 25`** kills the job if it hangs (for example, a rollout stuck forever), so it can't burn runner minutes.
-- **`env: IMAGE: 'agentic-qa-demo:${{ github.sha }}'`** sets an environment variable for every step. `github.sha` is the commit's ID, so every commit gets its own unique tag, for example `agentic-qa-demo:3f9a2c1...`. This replaces `:dev` from Lab 9. It's never `latest`, so `imagePullPolicy: IfNotPresent` still works. The same tag (the same bytes) is later published by the `publish` job: "test it, then ship exactly what was tested".
+- **`env: IMAGE: 'agentic-ai-demo:${{ github.sha }}'`** sets an environment variable for every step. `github.sha` is the commit's ID, so every commit gets its own unique tag, for example `agentic-ai-demo:3f9a2c1...`. This replaces `:dev` from Lab 9. It's never `latest`, so `imagePullPolicy: IfNotPresent` still works. The same tag (the same bytes) is later published by the `publish` job: "test it, then ship exactly what was tested".
 
 **1. `actions/checkout@v4`: get the code**
 - Clones the repo at the PR's commit onto the runner. The runner starts empty, so every job needs this.
@@ -466,9 +466,9 @@ Pipeline order: `build → e2e → kind-e2e` (and later `→ publish` on `main`)
 - `--name qa` matches `cluster_name: qa` from step 3.
 
 **6. `sed ... | kubectl apply -f -` and `kubectl rollout status`: deploy and wait**
-- **`sed "s|agentic-qa-demo:dev|$IMAGE|" k8s/app.yaml`** reads `app.yaml` and replaces the text `agentic-qa-demo:dev` with the SHA tag. It prints the result; **the file itself isn't changed**.
+- **`sed "s|agentic-ai-demo:dev|$IMAGE|" k8s/app.yaml`** reads `app.yaml` and replaces the text `agentic-ai-demo:dev` with the SHA tag. It prints the result; **the file itself isn't changed**.
 - **`| kubectl apply -f -`** sends that output straight into `kubectl apply`. `-f -` means "read the YAML from the pipe, not from a file".
-  - That's why `app.yaml` must keep `image: agentic-qa-demo:dev` in git. With `:dev2`, `sed` would produce `agentic-qa-demo:<sha>2`, which doesn't exist → `ErrImagePull`.
+  - That's why `app.yaml` must keep `image: agentic-ai-demo:dev` in git. With `:dev2`, `sed` would produce `agentic-ai-demo:<sha>2`, which doesn't exist → `ErrImagePull`.
 - **`kubectl rollout status ... --timeout=180s`** waits until both pods pass their readiness probe. The timeout is longer than Lab 9's 120 s because CI runners can be slower. If it times out, the step fails and the debug step runs.
 - `run: |` lets one step hold several shell lines. If either line fails, the step fails.
 
@@ -486,7 +486,7 @@ Pipeline order: `build → e2e → kind-e2e` (and later `→ publish` on `main`)
 - Runs **only** if an earlier step failed. When everything passes, it's skipped.
 - **`kubectl get pods -o wide`** shows pod status: `ErrImagePull`, `CrashLoopBackOff`, `0/1` not ready.
 - **`kubectl describe pods`** shows the **Events**, which is where probe failures (`Readiness probe failed: HTTP probe failed with statuscode: 404`) and image errors appear.
-- **`kubectl logs deploy/agentic-qa-demo --all-containers`** shows the app's own output.
+- **`kubectl logs deploy/agentic-ai-demo --all-containers`** shows the app's own output.
 - The runner and the cluster are thrown away when the job ends, so this is the only chance to see what went wrong. Step 4 of the lab (pointing the probe at `/nope`) tests exactly this.
 
 There's no cleanup step: the whole runner, cluster included, is deleted after the job.
@@ -496,8 +496,8 @@ There's no cleanup step: the whole runner, cluster included, is deleted after th
 | Lab 9 (my laptop) | Lab 10 (`kind-e2e` step) | Difference |
 | --- | --- | --- |
 | `kind create cluster --name qa --config k8s/kind-config.yaml` | `helm/kind-action` | Also installs kind and kubectl |
-| `docker build -t agentic-qa-demo:dev .` | `docker build -t "$IMAGE" .` | Tag is the commit SHA |
-| `kind load docker-image agentic-qa-demo:dev --name qa` | `kind load docker-image "$IMAGE" --name qa` | Same |
+| `docker build -t agentic-ai-demo:dev .` | `docker build -t "$IMAGE" .` | Tag is the commit SHA |
+| `kind load docker-image agentic-ai-demo:dev --name qa` | `kind load docker-image "$IMAGE" --name qa` | Same |
 | `kubectl apply -f k8s/app.yaml` | `sed ... \| kubectl apply -f -` | Image tag swapped on the fly |
 | `kubectl rollout status ... --timeout=120s` | `... --timeout=180s` | Longer for slower runners |
 | `$env:BASE_URL='http://localhost:8080'; npx playwright test` | `npx playwright test` with `env: BASE_URL` | Same tests, same URL |
@@ -531,8 +531,8 @@ Added to `.github/workflows/ci.yml` after `kind-e2e`, at the same indentation as
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/agentic-qa-demo:${{ github.sha }}
-            ghcr.io/${{ github.repository_owner }}/agentic-qa-demo:main
+            ghcr.io/${{ github.repository_owner }}/agentic-ai-demo:${{ github.sha }}
+            ghcr.io/${{ github.repository_owner }}/agentic-ai-demo:main
 ```
 
 **Job settings**
@@ -556,11 +556,11 @@ Added to `.github/workflows/ci.yml` after `kind-e2e`, at the same indentation as
 - `tags:` pushes the image under two tags:
   - **`:${{ github.sha }}`**: a permanent tag for exactly this commit. It never changes, so I can always deploy or roll back to an exact version.
   - **`:main`**: a moving tag that always points to the newest image from `main`. Handy for "give me the latest", but not for rollbacks.
-- `${{ github.repository_owner }}` is `zbasmajian`, so the images become `ghcr.io/zbasmajian/agentic-qa-demo:<sha>` and `:main`. GHCR needs lowercase names, and mine already is.
+- `${{ github.repository_owner }}` is `zbasmajian`, so the images become `ghcr.io/zbasmajian/agentic-ai-demo:<sha>` and `:main`. GHCR needs lowercase names, and mine already is.
 
 **After the first push on `main`**
 - The image shows up under my GitHub profile → **Packages**. It's **private** by default. To let others pull it without logging in, change its visibility to Public in the package's **Package settings**.
-- To check it: `docker pull ghcr.io/zbasmajian/agentic-qa-demo:main`.
+- To check it: `docker pull ghcr.io/zbasmajian/agentic-ai-demo:main`.
 
 **Caveat: "same bytes"**: Lab 10 says the image tested in Kind is the one published. With this job, `build-push-action` **builds the image again** from the same commit. That's very close to the tested image, but not byte-for-byte identical, since a base image like `node:22-alpine` could change in between. Truly the same bytes would mean `kind-e2e` saves its image (`docker save`) and uploads it as an artifact, then `publish` downloads it and pushes it as is.
 
@@ -630,7 +630,7 @@ So the whole workflow runs in two situations: for every PR, and for every push t
 
 **Check it from the terminal**
 ```powershell
-gh api repos/zbasmajian/agentic-qa-demo/rulesets/27099866
+gh api repos/zbasmajian/agentic-ai-demo/rulesets/27099866
 ```
 The `required_status_checks` rule lists `build`, `e2e`, `kind-e2e`.
 
@@ -649,15 +649,15 @@ The only change: the `readinessProbe` path in `k8s/app.yaml` went from `/healthz
 
 The failing step:
 ```
-Waiting for deployment "agentic-qa-demo" rollout to finish: 0 of 2 updated replicas are available...
+Waiting for deployment "agentic-ai-demo" rollout to finish: 0 of 2 updated replicas are available...
 error: timed out waiting for the condition
 ```
 
 What the `if: failure()` debug step showed:
 ```
 NAME                              READY   STATUS    RESTARTS
-agentic-qa-demo-bc5b466c6-47dqr   0/1     Running   0
-agentic-qa-demo-bc5b466c6-dml2k   0/1     Running   0
+agentic-ai-demo-bc5b466c6-47dqr   0/1     Running   0
+agentic-ai-demo-bc5b466c6-dml2k   0/1     Running   0
 
 Warning  Unhealthy  (x25 over 2m54s)  kubelet  Readiness probe failed: HTTP probe failed with statuscode: 404
 ```
@@ -673,13 +673,13 @@ To close a PR without merging in the UI: open the PR → Conversation tab → bo
 
 - **On the PR:** `build`, `e2e`, `kind-e2e` passed, and `publish` showed as **skipped**, because a PR run's `github.ref` is `refs/pull/15/merge`, not `refs/heads/main`.
 - **After the merge:** the push to `main` started a new CI run (`build → e2e → kind-e2e → publish`). In the Actions graph, `publish` sits greyed out at the end of the chain until `kind-e2e` finishes, so it's easy to miss while `kind-e2e` is still running.
-- **Result:** every job on the `main` run passed (`heal` skipped). The `publish` log showed `Login Succeeded!`, then `docker buildx build ... --tag ghcr.io/zbasmajian/agentic-qa-demo:644d68c6e638... --tag ghcr.io/zbasmajian/agentic-qa-demo:main --push`, then `pushing manifest for ghcr.io/zbasmajian/agentic-qa-demo:644d68c...@sha256:c03766cf...`. Both tags point to the same image digest.
+- **Result:** every job on the `main` run passed (`heal` skipped). The `publish` log showed `Login Succeeded!`, then `docker buildx build ... --tag ghcr.io/zbasmajian/agentic-ai-demo:644d68c6e638... --tag ghcr.io/zbasmajian/agentic-ai-demo:main --push`, then `pushing manifest for ghcr.io/zbasmajian/agentic-ai-demo:644d68c...@sha256:c03766cf...`. Both tags point to the same image digest.
 - **Reading packages from the terminal** needs an extra scope: `gh api /users/zbasmajian/packages/...` returned `403 You need at least read:packages scope`. Fix: `gh auth refresh -s read:packages`. The job log is enough to confirm the push.
-- **Where to find the image:** profile → **Packages** tab (https://github.com/zbasmajian?tab=packages) → `agentic-qa-demo`, or the **Packages** section in the repo's right sidebar. Before the first push there are no packages, and the tab may not show at all; packages can't be turned off for a personal account. On a narrow window, the tab can also be hidden in the **…** menu.
+- **Where to find the image:** profile → **Packages** tab (https://github.com/zbasmajian?tab=packages) → `agentic-ai-demo`, or the **Packages** section in the repo's right sidebar. Before the first push there are no packages, and the tab may not show at all; packages can't be turned off for a personal account. On a narrow window, the tab can also be hidden in the **…** menu.
 
 ### Before the first run
 
 - `k8s/` must be lowercase (`git mv K8s tmp; git mv tmp k8s`).
 - `Dockerfile`, `.dockerignore`, `next.config.ts` (`output: "standalone"`) and `k8s/` must be committed.
-- `app.yaml` must say `image: agentic-qa-demo:dev`.
+- `app.yaml` must say `image: agentic-ai-demo:dev`.
 - The Playwright tests must match the app (the "Clear everything" rename), or `e2e` fails first and `kind-e2e` never runs.

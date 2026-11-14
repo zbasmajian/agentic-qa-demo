@@ -1,6 +1,6 @@
-# Agentic QA Demo
+# Agentic AI Workflow: End-to-End Delivery Pipeline
 
-[![CI](https://github.com/zbasmajian/agentic-qa-demo/actions/workflows/ci.yml/badge.svg)](https://github.com/zbasmajian/agentic-qa-demo/actions/workflows/ci.yml)
+[![CI](https://github.com/zbasmajian/agentic-ai-demo/actions/workflows/ci.yml/badge.svg)](https://github.com/zbasmajian/agentic-ai-demo/actions/workflows/ci.yml)
 
 An **end-to-end software delivery pipeline** for a small web app, with **agentic AI test automation** built into it. Every change goes through a pull request. GitHub Actions builds the app, tests it, packages it as a **Docker** image, deploys that image to a short-lived **Kubernetes** cluster (Kind), and tests the deployed app. Only when every required check is green can the PR be merged. Each merge to `main` then publishes a versioned image to **GitHub Container Registry (GHCR)**.
 
@@ -56,7 +56,7 @@ flowchart LR
     end
 
     main --> rerun
-    publish --> ghcr[("GHCR<br/>agentic-qa-demo:&lt;sha&gt;<br/>agentic-qa-demo:main")]
+    publish --> ghcr[("GHCR<br/>agentic-ai-demo:&lt;sha&gt;<br/>agentic-ai-demo:main")]
 ```
 
 ### How a change flows
@@ -153,7 +153,7 @@ sequenceDiagram
     participant P as Playwright
 
     CI->>K: helm/kind-action creates cluster "qa" from k8s/kind-config.yaml
-    CI->>D: docker build -t agentic-qa-demo:<sha>
+    CI->>D: docker build -t agentic-ai-demo:<sha>
     CI->>K: kind load docker-image (no registry needed)
     CI->>K: kubectl apply (image tag swapped to <sha>)
     K->>K: 2 pods start, readiness probe GET /healthz
@@ -277,7 +277,7 @@ Every interactive element has an accessible name, so tests can use role-based lo
 | **Next.js standalone output** | `output: "standalone"` bundles a minimal `server.js` with only the `node_modules` it needs. The runtime stage needs no `npm ci`. Image size: ~219 MB, most of it the `node:22-alpine` base. |
 | **Non-root user** | The container runs as `node`, not `root`. |
 | **`HOSTNAME=0.0.0.0`, port 3000** | The server listens on all interfaces, so Docker port mappings and the Kubernetes Service can reach it. |
-| **Tagged by commit SHA** | Every commit produces its own image (`agentic-qa-demo:<sha>`), never `latest`. The image tested in Kind is built from the same commit as the one published. |
+| **Tagged by commit SHA** | Every commit produces its own image (`agentic-ai-demo:<sha>`), never `latest`. The image tested in Kind is built from the same commit as the one published. |
 
 ### Kubernetes manifests (`k8s/`)
 
@@ -309,7 +309,7 @@ The workflow runs on every **pull request** and on every **push to `main`**. The
 | `build` | every PR, push to `main` | `npm ci` + `npm run build` |
 | `e2e` | after `build` | Restores the cached browser, runs `npx playwright test` (Playwright starts the app through `webServer`), and uploads `playwright-report/` and `test-results/` (including `.last-run.json`) |
 | `kind-e2e` | after `e2e` passes | Creates a Kind cluster (`helm/kind-action`), builds the image tagged with `github.sha`, `kind load`s it, deploys `k8s/app.yaml` with the tag swapped in, waits for `rollout status`, runs Playwright against `http://localhost:8080`. On failure, prints pods, events and logs. |
-| `publish` | after `kind-e2e`, **only** `if: github.ref == 'refs/heads/main'` | Logs in to `ghcr.io` with `GITHUB_TOKEN` (`permissions: packages: write`) and pushes `ghcr.io/zbasmajian/agentic-qa-demo:<sha>` and `:main`. Shows as *skipped* on PRs. |
+| `publish` | after `kind-e2e`, **only** `if: github.ref == 'refs/heads/main'` | Logs in to `ghcr.io` with `GITHUB_TOKEN` (`permissions: packages: write`) and pushes `ghcr.io/zbasmajian/agentic-ai-demo:<sha>` and `:main`. Shows as *skipped* on PRs. |
 | `heal` | `e2e` failed **and** the event is a PR | Loop guard → install → download the e2e results → Claude runs the healer on `--last-failed` → full-suite check → `heal:` commit + PR comment |
 
 ### Branch protection (`protect-main` ruleset)
@@ -400,11 +400,11 @@ A green run's test step takes about **15–20 s** in CI. A full PR pipeline (`bu
 
 | PR | Workflow | Outcome | AI cost |
 |---|---|---|---|
-| [#7](https://github.com/zbasmajian/agentic-qa-demo/pull/7): Clear all button | `ai-generate-tests` | Plan with 8 scenarios + 8 tests + a page-object locator. 20/20 passing. The agent also flagged an accidental `Task2 Input` rename on `main`, which was then reverted. | ~$0.42 (9 turns) |
-| [#10](https://github.com/zbasmajian/agentic-qa-demo/pull/10): rename *Add Task* → *Create Task* | `heal` | Red (14/20 failing) → `heal:` commit changing 2 locators, no assertions changed → green 20/20. The agent checked the rename in a live page snapshot first. | ~$0.42 (10 turns) |
-| [#13](https://github.com/zbasmajian/agentic-qa-demo/pull/13): Docker image + Kind deploy in CI | `ci.yml` | First `kind-e2e` run: image built, deployed to Kind, 2 pods Ready, 20/20 tests passed against the deployed app (2m14s). | – |
-| [#14](https://github.com/zbasmajian/agentic-qa-demo/pull/14): readiness probe pointed at `/nope` (on purpose) | `ci.yml` | `build` ✅ and `e2e` ✅, because `e2e` can't see a broken manifest. **`kind-e2e` ❌**: pods stuck at `0/1`, and the debug step showed `Readiness probe failed: HTTP probe failed with statuscode: 404`. Closed without merging. | – |
-| [#15](https://github.com/zbasmajian/agentic-qa-demo/pull/15): `publish` job | `ci.yml` | On the PR: `publish` skipped and the merge `BLOCKED` until `kind-e2e` passed. After the merge: `publish` pushed `ghcr.io/zbasmajian/agentic-qa-demo:<sha>` and `:main`. | – |
+| [#7](https://github.com/zbasmajian/agentic-ai-demo/pull/7): Clear all button | `ai-generate-tests` | Plan with 8 scenarios + 8 tests + a page-object locator. 20/20 passing. The agent also flagged an accidental `Task2 Input` rename on `main`, which was then reverted. | ~$0.42 (9 turns) |
+| [#10](https://github.com/zbasmajian/agentic-ai-demo/pull/10): rename *Add Task* → *Create Task* | `heal` | Red (14/20 failing) → `heal:` commit changing 2 locators, no assertions changed → green 20/20. The agent checked the rename in a live page snapshot first. | ~$0.42 (10 turns) |
+| [#13](https://github.com/zbasmajian/agentic-ai-demo/pull/13): Docker image + Kind deploy in CI | `ci.yml` | First `kind-e2e` run: image built, deployed to Kind, 2 pods Ready, 20/20 tests passed against the deployed app (2m14s). | – |
+| [#14](https://github.com/zbasmajian/agentic-ai-demo/pull/14): readiness probe pointed at `/nope` (on purpose) | `ci.yml` | `build` ✅ and `e2e` ✅, because `e2e` can't see a broken manifest. **`kind-e2e` ❌**: pods stuck at `0/1`, and the debug step showed `Readiness probe failed: HTTP probe failed with statuscode: 404`. Closed without merging. | – |
+| [#15](https://github.com/zbasmajian/agentic-ai-demo/pull/15): `publish` job | `ci.yml` | On the PR: `publish` skipped and the merge `BLOCKED` until `kind-e2e` passed. After the merge: `publish` pushed `ghcr.io/zbasmajian/agentic-ai-demo:<sha>` and `:main`. | – |
 
 The AI runs stayed inside policy. There were no edits to `src/` and no weakened assertions, and every change was explained in a PR comment. PR #14 shows why testing the deployed artifact matters: the plain e2e job called it green. See [`LEARNING.md`](LEARNING.md) for the full write-ups and lessons.
 
@@ -437,18 +437,18 @@ BASE_URL=http://localhost:3000 npx playwright test
 ### Run it in Docker
 
 ```bash
-docker build -t agentic-qa-demo:dev .
-docker run --rm -p 3000:3000 agentic-qa-demo:dev
+docker build -t agentic-ai-demo:dev .
+docker run --rm -p 3000:3000 agentic-ai-demo:dev
 ```
 
 ### Deploy it to a local Kubernetes cluster (Kind)
 
 ```bash
 kind create cluster --name qa --config k8s/kind-config.yaml
-docker build -t agentic-qa-demo:dev .
-kind load docker-image agentic-qa-demo:dev --name qa
+docker build -t agentic-ai-demo:dev .
+kind load docker-image agentic-ai-demo:dev --name qa
 kubectl apply -f k8s/app.yaml
-kubectl rollout status deployment/agentic-qa-demo --timeout=120s
+kubectl rollout status deployment/agentic-ai-demo --timeout=120s
 curl http://localhost:8080/healthz
 BASE_URL=http://localhost:8080 npx playwright test
 
@@ -458,7 +458,7 @@ kind delete cluster --name qa   # clean up
 ### Pull the published image
 
 ```bash
-docker pull ghcr.io/zbasmajian/agentic-qa-demo:main
+docker pull ghcr.io/zbasmajian/agentic-ai-demo:main
 ```
 
 The package is private by default. Log in first with `gh auth token | docker login ghcr.io -u <user> --password-stdin`, or make it public in the package settings.

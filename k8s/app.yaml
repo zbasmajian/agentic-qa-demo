@@ -13,29 +13,29 @@
 apiVersion: apps/v1          # The API group Deployments belong to
 kind: Deployment             # Keeps a set number of identical pods running and replaces any that die
 metadata:
-  name: agentic-qa-demo      # The Deployment's name. Used by `kubectl rollout status deployment/agentic-qa-demo`,
-                             # `kubectl logs deploy/agentic-qa-demo` and `kubectl set image deployment/agentic-qa-demo`
+  name: agentic-ai-demo      # The Deployment's name. Used by `kubectl rollout status deployment/agentic-ai-demo`,
+                             # `kubectl logs deploy/agentic-ai-demo` and `kubectl set image deployment/agentic-ai-demo`
   labels:
-    app: agentic-qa-demo     # A tag on the Deployment itself, for filtering (kubectl get deploy -l app=agentic-qa-demo)
+    app: agentic-ai-demo     # A tag on the Deployment itself, for filtering (kubectl get deploy -l app=agentic-ai-demo)
 spec:
   replicas: 2                # Always keep 2 pods running. Delete one and Kubernetes creates a replacement
   selector:
     matchLabels:
-      app: agentic-qa-demo   # Which pods this Deployment owns: those with this label.
+      app: agentic-ai-demo   # Which pods this Deployment owns: those with this label.
                              # Must match template.metadata.labels below
   template:                  # The blueprint for each pod. Everything below describes ONE pod
     metadata:
       labels:
-        app: agentic-qa-demo # The label every new pod gets. Matches the selector above
+        app: agentic-ai-demo # The label every new pod gets. Matches the selector above
                              # (so the Deployment finds its pods) and the Service's selector
                              # (so the Service sends them traffic)
     spec:
       containers:            # The containers that run inside each pod (here, just one)
-        - name: app          # The container's name. Step 5's `kubectl set image ... app=agentic-qa-demo:dev2`
+        - name: app          # The container's name. Step 5's `kubectl set image ... app=agentic-ai-demo:dev2`
                              # uses the "app=" part to find it
-          image: agentic-qa-demo:dev   # The image to run. Must match the tag you built and loaded:
-                                       #   docker build -t agentic-qa-demo:dev .
-                                       #   kind load docker-image agentic-qa-demo:dev --name qa
+          image: agentic-ai-demo:dev   # The image to run. Must match the tag you built and loaded:
+                                       #   docker build -t agentic-ai-demo:dev .
+                                       #   kind load docker-image agentic-ai-demo:dev --name qa
                                        # Lab 10's CI swaps this exact text for the commit-SHA tag
           # The image was loaded into the cluster with `kind load docker-image`,
           # never pushed to a registry, so never try to pull it.
@@ -87,11 +87,11 @@ spec:
 apiVersion: v1               # Services are in the core API group, version v1
 kind: Service                # One stable address for a changing set of pods (pods come and go with new IPs)
 metadata:
-  name: agentic-qa-demo      # The Service's name
+  name: agentic-ai-demo      # The Service's name
 spec:
   type: NodePort             # Opens a port on the cluster node, so traffic from outside the cluster can get in
   selector:
-    app: agentic-qa-demo     # Send traffic to every READY pod with this label (see readinessProbe above)
+    app: agentic-ai-demo     # Send traffic to every READY pod with this label (see readinessProbe above)
   ports:
     - port: 80               # The Service's own port inside the cluster
       targetPort: 3000       # The container port traffic is forwarded to (where Next.js listens)
