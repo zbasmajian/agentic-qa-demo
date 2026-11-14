@@ -98,3 +98,25 @@ jobs:
             --max-turns 30
             --mcp-config .mcp.ci.json
             --allowedTools "Read,Edit,Write,Glob,Grep,Bash(npx playwright:*),Bash(git:*),Bash(gh pr comment:*),mcp__playwright-test"
+
+  kind-e2e:
+    needs: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env: { IMAGE: 'agentic-qa-demo:${{ github.sha }}' }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - uses: helm/kind-action@v1
+        with: { cluster_name: qa, config: k8s/kind-config.yaml }
+      - run: docker build -t "$IMAGE" .
+      - run: kind load docker-image "$IMAGE" --name qa
+      - run: |
+          sed "s|agentic-qa-demo:dev|$IMAGE|" k8s/app.yaml | kubectl apply -f -
+          kubectl rollout status deployment/agentic-qa-demo --timeout=180s
+      - run: npm ci && npx playwright install --with-deps chromium
+      - run: npx playwright test
+        env: { BASE_URL: 'http://localhost:8080' }
+      - if: failure()
+        run: kubectl get pods -o wide && kubectl describe pods && kubectl logs deploy/agentic-qa-demo --all-containers
