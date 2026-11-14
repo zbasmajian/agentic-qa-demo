@@ -51,7 +51,7 @@ spec:
           # rolling updates free of failed requests: a new pod only gets traffic once it answers.
           readinessProbe:
             httpGet:
-              path: /healthz       # The app's health route (src/app/healthz/route.ts)
+              path: /nope          # BROKEN ON PURPOSE (Lab 10 Step 4): this route doesn't exist, so the probe gets 404
               port: 3000           # The container port to call (the app's port, not the NodePort)
             initialDelaySeconds: 5 # Wait 5s after the container starts before the first check
             periodSeconds: 5       # Then check every 5s
