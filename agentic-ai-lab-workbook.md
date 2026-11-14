@@ -1,4 +1,4 @@
-# Agentic QA Lab Workbook: Playwright Agents + GitHub Actions + Kind
+# Agentic AI Lab Workbook: Playwright Agents + GitHub Actions + Kind
 
 Nov 11, 2026 · @Zohrab
 
