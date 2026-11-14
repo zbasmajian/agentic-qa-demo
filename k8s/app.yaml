@@ -1,0 +1,100 @@
+# Lab 9, Step 2: deploys the app to the kind cluster.
+# This file holds two Kubernetes objects, separated by "---":
+#   1. Deployment: runs and looks after the app's pods
+#   2. Service:    gives those pods one stable address you can reach from your laptop
+#
+# Full path of a request from your laptop to the app:
+#   localhost:8080 -> (kind-config.yaml) node:30080 -> (Service nodePort) -> Service:80
+#   -> (targetPort) pod:3000 -> Next.js server
+
+# ---------------------------------------------------------------------------
+# 1. Deployment
+# ---------------------------------------------------------------------------
+apiVersion: apps/v1          # The API group Deployments belong to
+kind: Deployment             # Keeps a set number of identical pods running and replaces any that die
+metadata:
+  name: agentic-qa-demo      # The Deployment's name. Used by `kubectl rollout status deployment/agentic-qa-demo`,
+                             # `kubectl logs deploy/agentic-qa-demo` and `kubectl set image deployment/agentic-qa-demo`
+  labels:
+    app: agentic-qa-demo     # A tag on the Deployment itself, for filtering (kubectl get deploy -l app=agentic-qa-demo)
+spec:
+  replicas: 2                # Always keep 2 pods running. Delete one and Kubernetes creates a replacement
+  selector:
+    matchLabels:
+      app: agentic-qa-demo   # Which pods this Deployment owns: those with this label.
+                             # Must match template.metadata.labels below
+  template:                  # The blueprint for each pod. Everything below describes ONE pod
+    metadata:
+      labels:
+        app: agentic-qa-demo # The label every new pod gets. Matches the selector above
+                             # (so the Deployment finds its pods) and the Service's selector
+                             # (so the Service sends them traffic)
+    spec:
+      containers:            # The containers that run inside each pod (here, just one)
+        - name: app          # The container's name. Step 5's `kubectl set image ... app=agentic-qa-demo:dev2`
+                             # uses the "app=" part to find it
+          image: agentic-qa-demo:dev   # The image to run. Must match the tag you built and loaded:
+                                       #   docker build -t agentic-qa-demo:dev .
+                                       #   kind load docker-image agentic-qa-demo:dev --name qa
+                                       # Lab 10's CI swaps this exact text for the commit-SHA tag
+          # The image was loaded into the cluster with `kind load docker-image`,
+          # never pushed to a registry, so never try to pull it.
+          imagePullPolicy: IfNotPresent  # Use the image already on the node, don't download it.
+                                         # With tag `latest` the default is Always, which tries Docker Hub
+                                         # and fails with ErrImagePull
+          ports:
+            - containerPort: 3000  # The port the Next.js server listens on INSIDE the container.
+                                   # Not 30080: that's the node's port, handled by the Service below
+
+          # Readiness: "Is this pod ready for traffic?"
+          # Until this check passes, the Service sends the pod no requests. That keeps
+          # rolling updates free of failed requests: a new pod only gets traffic once it answers.
+          readinessProbe:
+            httpGet:
+              path: /healthz       # The app's health route (src/app/healthz/route.ts)
+              port: 3000           # The container port to call (the app's port, not the NodePort)
+            initialDelaySeconds: 5 # Wait 5s after the container starts before the first check
+            periodSeconds: 5       # Then check every 5s
+            failureThreshold: 3    # 3 failures in a row = not ready (traffic stops going to this pod)
+
+          # Liveness: "Is this pod still alive?"
+          # If this check keeps failing, Kubernetes RESTARTS the container.
+          # It catches a server that's still running but hung.
+          livenessProbe:
+            httpGet:
+              path: /healthz       # Same health route
+              port: 3000
+            initialDelaySeconds: 15 # Wait longer than readiness, so a slow startup isn't treated
+                                    # as a crash (which would cause a restart loop)
+            periodSeconds: 10       # Check every 10s
+            failureThreshold: 3     # 3 failures in a row = restart the container
+
+          # CPU and memory for each pod
+          resources:
+            requests:              # The minimum reserved for each pod. The scheduler only places
+                                   # the pod on a node with this much free
+              cpu: 100m            # 100 millicores = a tenth of one CPU core
+              memory: 256Mi        # 256 mebibytes
+            limits:                # The most each pod may use
+              cpu: 500m            # Half a core. CPU above this is slowed down (throttled), not killed
+              memory: 512Mi        # Memory above this gets the container killed (OOMKilled) and restarted.
+                                   # If `kubectl describe pod` shows OOMKilled, raise this
+
+---
+# ---------------------------------------------------------------------------
+# 2. Service
+# ---------------------------------------------------------------------------
+apiVersion: v1               # Services are in the core API group, version v1
+kind: Service                # One stable address for a changing set of pods (pods come and go with new IPs)
+metadata:
+  name: agentic-qa-demo      # The Service's name
+spec:
+  type: NodePort             # Opens a port on the cluster node, so traffic from outside the cluster can get in
+  selector:
+    app: agentic-qa-demo     # Send traffic to every READY pod with this label (see readinessProbe above)
+  ports:
+    - port: 80               # The Service's own port inside the cluster
+      targetPort: 3000       # The container port traffic is forwarded to (where Next.js listens)
+      nodePort: 30080        # The port opened on the node (must be 30000-32767).
+                             # Must equal containerPort: 30080 in kind-config.yaml, which maps it
+                             # to http://localhost:8080 on your laptop
