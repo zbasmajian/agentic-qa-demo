@@ -248,7 +248,7 @@ sequenceDiagram
 ├── next.config.ts               # Includes output: "standalone" for the Docker image
 ├── playwright.config.ts
 ├── LEARNING.md                  # Lab notes: decisions, run results, costs, lessons
-└── agentic-qa-lab-workbook.md   # The lab workbook this project follows
+└── agentic-ai-lab-workbook.md   # The lab workbook this project follows
 ```
 
 ---
@@ -515,6 +515,6 @@ The run summary of each Claude step shows the turns used and the cost (`num_turn
 - [`LEARNING.md`](LEARNING.md): decisions, mistakes, run results and costs, lab by lab
 - [`docs/healing-policy.md`](docs/healing-policy.md): the full healing policy
 - [`CLAUDE.md`](CLAUDE.md): healing and generation policy loaded by every agent
-- [`agentic-qa-lab-workbook.md`](agentic-qa-lab-workbook.md): the lab workbook
+- [`agentic-ai-lab-workbook.md`](agentic-ai-lab-workbook.md): the lab workbook
 - [Playwright test agents](https://playwright.dev/docs/test-agents) · [Claude Code GitHub Action](https://github.com/anthropics/claude-code-action)
 - [kind](https://kind.sigs.k8s.io/) · [Kubernetes probes](https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes) · [GitHub Container Registry](https://docs.github.com/packages/working-with-a-github-packages-registry/working-with-the-container-registry)

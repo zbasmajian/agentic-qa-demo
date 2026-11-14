@@ -33,7 +33,7 @@ In Next.js, folders decide the website's addresses: `src/app/page.tsx` is `/`, a
 | `.gitignore` | Files Git must not upload: `node_modules`, `.next`, `.env` files (secrets), and Playwright's `test-results/` and `playwright-report/`. |
 | `README.md` | The starter template's default instructions. |
 | `AGENTS.md` | Notes for AI coding assistants: this Next.js version is new, so check the docs that come with it. `next dev` writes this file automatically. |
-| `agentic-qa-lab-workbook.md` | The lab workbook I'm following. |
+| `agentic-ai-lab-workbook.md` | The lab workbook I'm following. |
 | `LEARNING.md` | This file: my notes after each lab. |
 
 ### Folders you can ignore
