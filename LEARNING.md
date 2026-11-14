@@ -600,6 +600,83 @@ So the whole workflow runs in two situations: for every PR, and for every push t
 - Without the `push: branches: [main]` trigger, nothing would run after a merge, so `publish` would never get a chance to run.
 - `needs: kind-e2e` adds a third rule: even on `main`, `publish` waits for `kind-e2e` and doesn't run if it fails.
 
+### Step 3: required status checks on `main`
+
+**What "Require status checks to pass" means:** every job in `ci.yml` reports a **status check** on the PR (`build`, `e2e`, `kind-e2e`, …). Without the rule, a red check is only a warning and the Merge button still works. With it, GitHub **blocks the merge** until every required check is green (or skipped). It turns "please look at CI" into a rule nobody can skip. CI is the smoke detector; the required check is the door lock wired to it.
+
+**What I set up** (repo → Settings → Rules → Rulesets → `protect-main`):
+1. Ticked **Require status checks to pass**.
+2. Left **Require branches to be up to date before merging** off (on would mean re-running CI after every update to `main`) and **Do not require status checks on creation** off.
+3. **Add checks** → `build`, `e2e`, `kind-e2e`, each with source **GitHub Actions**, so only my workflow can mark them green. The API shows this as `integration_id: 15368` (the GitHub Actions app).
+4. **Save changes**, with Enforcement status still **Active**.
+
+`protect-main` now has 4 rules: restrict deletions, block force pushes, require a pull request, require status checks.
+
+**Which checks are required, and which not**
+
+| Check | Required? | Why |
+| --- | --- | --- |
+| `build` | yes | The app must compile |
+| `e2e` | yes | The tests must pass against `npm start` |
+| `kind-e2e` | yes | The tests must pass against the deployed image |
+| `heal` | no | A helper that only runs when `e2e` fails, not a quality gate |
+| `publish` | no | Never runs on PRs. A required check that never reports would block every PR forever |
+
+**Gotchas**
+- **Skipped counts as passing.** If `e2e` fails, `kind-e2e` is skipped (`needs: e2e`), and a skipped required check counts as passed. That's why `e2e` must be required too, not just `kind-e2e`.
+- **The rule matches the job name.** Renaming `kind-e2e` in `ci.yml` without updating the ruleset leaves every PR waiting for a check that never reports.
+- **Admins can bypass.** As the repo owner I may still see "Merge without waiting for requirements to be met (bypass rules)". To block myself too, the ruleset's **Bypass list** must be empty.
+- A check only shows up in the **Add checks** search after it has run at least once.
+
+**Check it from the terminal**
+```powershell
+gh api repos/zbasmajian/agentic-qa-demo/rulesets/27099866
+```
+The `required_status_checks` rule lists `build`, `e2e`, `kind-e2e`.
+
+**Proof it works:** on PR #15, `gh pr view 15 --json mergeStateStatus` said **`BLOCKED`** while `kind-e2e` was still running, and **`CLEAN`** once it passed.
+
+### Step 4: breaking the deploy on purpose (PR #14)
+
+The only change: the `readinessProbe` path in `k8s/app.yaml` went from `/healthz` to `/nope`. Opened as a draft titled "DO NOT MERGE", then closed without merging.
+
+| Check | Result | Why |
+| --- | --- | --- |
+| `build` | ✅ pass | The code is fine |
+| `e2e` | ✅ **pass** | It tests `npm start`, which never reads `app.yaml`, so it **can't see** this bug |
+| `kind-e2e` | ❌ **fail** (4m32s) | Pods never became Ready |
+| `heal` | skipped | Only runs when `e2e` fails, so no Claude cost |
+
+The failing step:
+```
+Waiting for deployment "agentic-qa-demo" rollout to finish: 0 of 2 updated replicas are available...
+error: timed out waiting for the condition
+```
+
+What the `if: failure()` debug step showed:
+```
+NAME                              READY   STATUS    RESTARTS
+agentic-qa-demo-bc5b466c6-47dqr   0/1     Running   0
+agentic-qa-demo-bc5b466c6-dml2k   0/1     Running   0
+
+Warning  Unhealthy  (x25 over 2m54s)  kubelet  Readiness probe failed: HTTP probe failed with statuscode: 404
+```
+- **`Running` but `0/1`:** the app started, but Kubernetes never marked it ready, so the Service sent it no traffic.
+- **`RESTARTS 0`:** only *readiness* was broken. The *liveness* probe still called `/healthz`, so nothing was restarted.
+- **`404` × 25:** the probe called `/nope` every 5 s, and the app answered "not found" every time.
+
+**Lesson:** `e2e` alone would have called this PR green. Only testing the *deployed* app caught it. At that time `main` had no required checks yet, so the red PR's Merge button still worked. Only the draft status and the title stopped it.
+
+To close a PR without merging in the UI: open the PR → Conversation tab → bottom of the page → **Close pull request** (the grey button next to the comment box, not the green merge button). Then **Delete branch** in the timeline. Locally: `git checkout main; git branch -D break-readiness-probe` (`-D` because the branch was never merged).
+
+### Publish in practice (PR #15)
+
+- **On the PR:** `build`, `e2e`, `kind-e2e` passed, and `publish` showed as **skipped**, because a PR run's `github.ref` is `refs/pull/15/merge`, not `refs/heads/main`.
+- **After the merge:** the push to `main` started a new CI run (`build → e2e → kind-e2e → publish`). In the Actions graph, `publish` sits greyed out at the end of the chain until `kind-e2e` finishes, so it's easy to miss while `kind-e2e` is still running.
+- **Result:** every job on the `main` run passed (`heal` skipped). The `publish` log showed `Login Succeeded!`, then `docker buildx build ... --tag ghcr.io/zbasmajian/agentic-qa-demo:644d68c6e638... --tag ghcr.io/zbasmajian/agentic-qa-demo:main --push`, then `pushing manifest for ghcr.io/zbasmajian/agentic-qa-demo:644d68c...@sha256:c03766cf...`. Both tags point to the same image digest.
+- **Reading packages from the terminal** needs an extra scope: `gh api /users/zbasmajian/packages/...` returned `403 You need at least read:packages scope`. Fix: `gh auth refresh -s read:packages`. The job log is enough to confirm the push.
+- **Where to find the image:** profile → **Packages** tab (https://github.com/zbasmajian?tab=packages) → `agentic-qa-demo`, or the **Packages** section in the repo's right sidebar. Before the first push there are no packages, and the tab may not show at all; packages can't be turned off for a personal account. On a narrow window, the tab can also be hidden in the **…** menu.
+
 ### Before the first run
 
 - `k8s/` must be lowercase (`git mv K8s tmp; git mv tmp k8s`).
